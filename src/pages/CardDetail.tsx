@@ -1,0 +1,141 @@
+import { useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Plus } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useApp } from '@/lib/store';
+import { formatCurrency } from '@/lib/data';
+import { CreditCardVisual } from '@/components/CreditCardVisual';
+import { Button } from '@/components/ui/button';
+
+export default function CardDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { cards, expenses } = useApp();
+
+  const card = cards.find(c => c.id === id);
+  const cardExpenses = useMemo(() => expenses.filter(e => e.cardId === id), [expenses, id]);
+
+  const projected = useMemo(() =>
+    cardExpenses.reduce((acc, e) => acc + Math.round(e.total / e.installments), 0),
+    [cardExpenses]
+  );
+
+  const projectionData = useMemo(() =>
+    Array.from({ length: 6 }).map((_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + i);
+      const total = cardExpenses.reduce((acc, exp) => {
+        const remaining = exp.installments - exp.current;
+        return i <= remaining ? acc + Math.round(exp.total / exp.installments) : acc;
+      }, 0);
+      return { name: d.toLocaleString('es-AR', { month: 'short' }), total };
+    }),
+    [cardExpenses]
+  );
+
+  if (!card) return <div className="text-foreground p-8">Tarjeta no encontrada.</div>;
+
+  return (
+    <div className="space-y-8 animate-slide-in-right">
+      <button onClick={() => navigate('/tarjetas')} className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm interactive-press">
+        <ArrowLeft size={16} /> Volver a Tarjetas
+      </button>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 space-y-6">
+          <CreditCardVisual card={card} projected={projected} />
+          <div className="surface-elevated p-6 rounded-2xl space-y-4">
+            <h4 className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Métricas</h4>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground text-sm">Presupuesto</span>
+              <span className="text-foreground font-medium">{formatCurrency(card.budget)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground text-sm">Disponible</span>
+              <span className={`font-medium ${card.budget - projected < 0 ? 'text-destructive' : 'text-success'}`}>
+                {formatCurrency(card.budget - projected)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground text-sm">Gastos activos</span>
+              <span className="text-foreground font-medium">{cardExpenses.length}</span>
+            </div>
+          </div>
+          <Button className="w-full gap-2" onClick={() => navigate('/gastos/nuevo')}>
+            <Plus size={16} /> Agregar Gasto
+          </Button>
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+          {/* Projection chart */}
+          <div className="surface-elevated rounded-2xl p-6">
+            <h3 className="text-lg font-bold text-foreground mb-6">Proyección de Deuda (6 meses)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={projectionData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 14%)" vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    cursor={{ fill: 'hsl(217 33% 14%)' }}
+                    contentStyle={{ backgroundColor: 'hsl(222 47% 7%)', border: '1px solid hsl(217 33% 14%)', borderRadius: '8px' }}
+                  />
+                  <Bar dataKey="total" fill="hsl(221 83% 53%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Expenses table */}
+          <div className="surface-elevated rounded-2xl overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-secondary text-muted-foreground text-[10px] uppercase tracking-widest">
+                  <th className="px-6 py-4 font-semibold">Gasto</th>
+                  <th className="px-6 py-4 font-semibold text-right">Cuota</th>
+                  <th className="px-6 py-4 font-semibold text-center">Progreso</th>
+                  <th className="px-6 py-4 font-semibold text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {cardExpenses.map(exp => {
+                  const remaining = exp.installments - exp.current;
+                  return (
+                    <tr key={exp.id} className="hover:bg-secondary/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="text-foreground font-medium text-sm">{exp.desc}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-muted-foreground text-xs">{exp.category}</p>
+                          {remaining <= 1 && exp.installments > 1 && (
+                            <span className="text-[10px] bg-success/10 text-success px-1.5 py-0.5 rounded border border-success/20">
+                              {remaining === 0 ? 'Última cuota' : '1 cuota más'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-foreground font-bold text-sm tracking-display">{formatCurrency(Math.round(exp.total / exp.installments))}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">{exp.current} de {exp.installments}</span>
+                          <div className="w-24 bg-secondary h-1 rounded-full overflow-hidden">
+                            <div className="bg-primary h-full rounded-full" style={{ width: `${(exp.current / exp.installments) * 100}%` }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-muted-foreground text-xs">{formatCurrency(exp.total)}</p>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
