@@ -1,24 +1,23 @@
-import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, type ReactNode } from 'react';
-import { INITIAL_CARDS, INITIAL_EXPENSES, INITIAL_SUBSCRIPTIONS, type CreditCard, type Expense, type Subscription } from '@/lib/data';
+import React, { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
+import { type CreditCard, type Expense } from '@/lib/data';
 import { toast } from 'sonner';
 
 interface AppState {
   cards: CreditCard[];
   expenses: Expense[];
-  subscriptions: Subscription[];
-  subscriptionAlertDays: number;
   alertThreshold: number;
+  subscriptionAlertDays: number;
   setAlertThreshold: (v: number) => void;
   setSubscriptionAlertDays: (v: number) => void;
-  addCard: (card: Omit<CreditCard, 'id'>) => void;
-  updateCard: (card: CreditCard) => void;
-  deleteCard: (id: string) => void;
-  addExpense: (expense: Omit<Expense, 'id'>) => void;
-  updateExpense: (expense: Expense) => void;
-  deleteExpense: (id: string | number) => void;
-  addSubscription: (sub: Omit<Subscription, 'id'>) => void;
-  updateSubscription: (sub: Subscription) => void;
-  deleteSubscription: (id: string) => void;
+  addCard: (card: Omit<CreditCard, 'id'>) => Promise<void>;
+  updateCard: (card: CreditCard) => Promise<void>;
+  deleteCard: (id: string) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: string | number) => Promise<void>;
   getCardExpenses: (cardId: string) => Expense[];
   getCardProjected: (cardId: string) => number;
   nextMonthTotal: number;
@@ -29,128 +28,193 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Initialize from localStorage or use defaults
-  const [cards, setCards] = useState<CreditCard[]>(() => {
-    const saved = localStorage.getItem('cuotactrl_cards');
-    return saved ? JSON.parse(saved) : INITIAL_CARDS;
-  });
-  
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const saved = localStorage.getItem('cuotactrl_expenses');
-    return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
-  });
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => {
-    const saved = localStorage.getItem('cuotactrl_subscriptions');
-    return saved ? JSON.parse(saved) : INITIAL_SUBSCRIPTIONS;
-  });
-  
-  const [alertThreshold, setAlertThreshold] = useState<number>(() => {
+  // Local Preferences
+  const [alertThreshold, setAlertThreshold] = React.useState<number>(() => {
     const saved = localStorage.getItem('cuotactrl_alert_threshold');
     return saved ? JSON.parse(saved) : 80;
   });
 
-  const [subscriptionAlertDays, setSubscriptionAlertDays] = useState<number>(() => {
+  const [subscriptionAlertDays, setSubscriptionAlertDays] = React.useState<number>(() => {
     const saved = localStorage.getItem('cuotactrl_sub_alert_days');
     return saved ? JSON.parse(saved) : 3;
   });
 
-  const [loadingData, setLoadingData] = useState(false);
+  React.useEffect(() => localStorage.setItem('cuotactrl_alert_threshold', JSON.stringify(alertThreshold)), [alertThreshold]);
+  React.useEffect(() => localStorage.setItem('cuotactrl_sub_alert_days', JSON.stringify(subscriptionAlertDays)), [subscriptionAlertDays]);
 
-  // Sync to localStorage
-  useEffect(() => {
-    localStorage.setItem('cuotactrl_cards', JSON.stringify(cards));
-  }, [cards]);
+  // DB Queries
+  const { data: cards = [], isLoading: loadingCards } = useQuery({
+    queryKey: ['cards', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('tarjetas').select('*').eq('user_id', user.id);
+      if (error) throw error;
+      return data.map(db => ({
+        id: db.id,
+        name: db.nombre,
+        bank: db.banco,
+        budget: Number(db.presupuesto_propio),
+        gradient: db.color || 'from-blue-600 to-indigo-700',
+        lastDigits: db.ultimos_digitos || '',
+      })) as CreditCard[];
+    },
+    enabled: !!user,
+  });
 
-  useEffect(() => {
-    localStorage.setItem('cuotactrl_expenses', JSON.stringify(expenses));
+  const { data: expenses = [], isLoading: loadingExpenses } = useQuery({
+    queryKey: ['expenses', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('gastos').select('*').eq('user_id', user.id);
+      if (error) throw error;
+      return data.map(db => ({
+        id: db.id,
+        cardId: db.tarjeta_id,
+        desc: db.descripcion,
+        total: Number(db.monto_total),
+        installments: db.cuotas_total,
+        current: db.cuota_actual,
+        date: db.fecha_primera_cuota,
+        category: db.categoria,
+        installmentAmount: Number(db.monto_cuota) || 0
+      })) as Expense[];
+    },
+    enabled: !!user,
+  });
+
+  // DB Mutations - Cards
+  const { mutateAsync: mutateAddCard } = useMutation({
+    mutationFn: async (card: Omit<CreditCard, 'id'>) => {
+      const { error } = await supabase.from('tarjetas').insert({
+        user_id: user!.id,
+        nombre: card.name,
+        banco: card.bank,
+        presupuesto_propio: card.budget,
+        color: card.gradient,
+        ultimos_digitos: card.lastDigits,
+      });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['cards'] });
+      toast.success("Tarjeta creada con éxito");
+    }
+  });
+
+  const { mutateAsync: mutateUpdateCard } = useMutation({
+    mutationFn: async (card: CreditCard) => {
+      const { error } = await supabase.from('tarjetas').update({
+        nombre: card.name,
+        banco: card.bank,
+        presupuesto_propio: card.budget,
+        color: card.gradient,
+        ultimos_digitos: card.lastDigits,
+      }).eq('id', card.id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['cards'] });
+      toast.success("Tarjeta actualizada");
+    }
+  });
+
+  const { mutateAsync: mutateDeleteCard } = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('tarjetas').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cards'] }),
+        queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      ]);
+      toast.success("Tarjeta eliminada");
+    }
+  });
+
+  // DB Mutations - Expenses
+  const { mutateAsync: mutateAddExpense } = useMutation({
+    mutationFn: async (expense: Omit<Expense, 'id'>) => {
+      const { error } = await supabase.from('gastos').insert({
+        user_id: user!.id,
+        tarjeta_id: expense.cardId,
+        descripcion: expense.desc,
+        monto_total: expense.total,
+        cuotas_total: expense.installments,
+        cuota_actual: expense.current,
+        fecha_primera_cuota: expense.date,
+        categoria: expense.category,
+        monto_cuota: expense.installmentAmount,
+      });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast.success("Gasto cargado exitosamente");
+    }
+  });
+
+  const { mutateAsync: mutateUpdateExpense } = useMutation({
+    mutationFn: async (expense: Expense) => {
+      const { error } = await supabase.from('gastos').update({
+        tarjeta_id: expense.cardId,
+        descripcion: expense.desc,
+        monto_total: expense.total,
+        cuotas_total: expense.installments,
+        cuota_actual: expense.current,
+        fecha_primera_cuota: expense.date,
+        categoria: expense.category,
+        monto_cuota: expense.installmentAmount,
+      }).eq('id', expense.id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast.success("Gasto actualizado exitosamente");
+    }
+  });
+
+  const { mutateAsync: mutateDeleteExpense } = useMutation({
+    mutationFn: async (id: string | number) => {
+      const { error } = await supabase.from('gastos').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast.success("Gasto eliminado");
+    }
+  });
+
+  // Derived calculations
+  const getCardExpenses = React.useCallback((cardId: string) => {
+    return expenses.filter(e => String(e.cardId) === String(cardId));
   }, [expenses]);
 
-  useEffect(() => {
-    localStorage.setItem('cuotactrl_subscriptions', JSON.stringify(subscriptions));
-  }, [subscriptions]);
-  
-  useEffect(() => {
-    localStorage.setItem('cuotactrl_alert_threshold', JSON.stringify(alertThreshold));
-  }, [alertThreshold]);
-
-  useEffect(() => {
-    localStorage.setItem('cuotactrl_sub_alert_days', JSON.stringify(subscriptionAlertDays));
-  }, [subscriptionAlertDays]);
-
-  const addCard = useCallback((card: Omit<CreditCard, 'id'>) => {
-    setCards(prev => [...prev, { ...card, id: `c${Date.now()}` }]);
-    toast.success("Tarjeta creada con éxito");
-  }, []);
-
-  const updateCard = useCallback((card: CreditCard) => {
-    setCards(prev => prev.map(c => c.id === card.id ? card : c));
-    toast.success("Tarjeta actualizada");
-  }, []);
-
-  const deleteCard = useCallback((id: string) => {
-    setCards(prev => prev.filter(c => c.id !== id));
-    setExpenses(prev => prev.filter(e => e.cardId !== id));
-    toast.success("Tarjeta eliminada");
-  }, []);
-
-  const addExpense = useCallback((expense: Omit<Expense, 'id'>) => {
-    setExpenses(prev => [...prev, { ...expense, id: Date.now() }]);
-    toast.success("Gasto cargado exitosamente");
-  }, []);
-
-  const updateExpense = useCallback((expense: Expense) => {
-    setExpenses(prev => prev.map(e => e.id === expense.id ? expense : e));
-    toast.success("Gasto actualizado exitosamente");
-  }, []);
-
-  const deleteExpense = useCallback((id: string | number) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
-    toast.success("Gasto eliminado");
-  }, []);
-
-  const addSubscription = useCallback((sub: Omit<Subscription, 'id'>) => {
-    setSubscriptions(prev => [...prev, { ...sub, id: `s${Date.now()}` }]);
-    toast.success("Suscripción agregada");
-  }, []);
-
-  const updateSubscription = useCallback((sub: Subscription) => {
-    setSubscriptions(prev => prev.map(s => s.id === sub.id ? sub : s));
-    toast.success("Suscripción actualizada");
-  }, []);
-
-  const deleteSubscription = useCallback((id: string) => {
-    setSubscriptions(prev => prev.filter(s => s.id !== id));
-    toast.success("Suscripción eliminada");
-  }, []);
-
-  const getCardExpenses = useCallback((cardId: string) => {
-    return expenses.filter(e => e.cardId === cardId);
-  }, [expenses]);
-
-  const getCardProjected = useCallback((cardId: string) => {
+  const getCardProjected = React.useCallback((cardId: string) => {
     return expenses
-      .filter(e => e.cardId === cardId && e.current <= e.installments)
-      .reduce((acc, e) => acc + Math.round(e.total / e.installments), 0);
+      .filter(e => String(e.cardId) === String(cardId) && e.current <= e.installments)
+      .reduce((acc, e) => acc + (e.installmentAmount || Math.round(e.total / e.installments)), 0);
   }, [expenses]);
 
   const nextMonthTotal = useMemo(() =>
     expenses
       .filter(e => e.current < e.installments || e.installments === 1)
-      .reduce((acc, e) => acc + Math.round(e.total / e.installments), 0),
-    [expenses]
-  );
+      .reduce((acc, e) => acc + (e.installmentAmount || Math.round(e.total / e.installments)), 0),
+  [expenses]);
 
   const totalBudget = useMemo(() => cards.reduce((acc, c) => acc + c.budget, 0), [cards]);
 
   return (
     <AppContext.Provider value={{
-      cards, expenses, subscriptions, alertThreshold, subscriptionAlertDays,
+      cards, expenses, alertThreshold, subscriptionAlertDays,
       setAlertThreshold, setSubscriptionAlertDays,
-      addCard, updateCard, deleteCard, addExpense, updateExpense, deleteExpense,
-      addSubscription, updateSubscription, deleteSubscription,
+      addCard: mutateAddCard, updateCard: mutateUpdateCard, deleteCard: mutateDeleteCard, 
+      addExpense: mutateAddExpense, updateExpense: mutateUpdateExpense, deleteExpense: mutateDeleteExpense,
       getCardExpenses, getCardProjected, nextMonthTotal, totalBudget,
-      loadingData
+      loadingData: loadingCards || loadingExpenses
     }}>
       {children}
     </AppContext.Provider>

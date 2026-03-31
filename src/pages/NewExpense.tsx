@@ -12,36 +12,57 @@ export default function NewExpense() {
   const { cards, addExpense } = useApp();
   const navigate = useNavigate();
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     cardId: cards[0]?.id || '',
     desc: '',
     total: '',
     installments: '',
+    installmentAmount: '',
+    interestRate: '',
     date: new Date().toISOString().slice(0, 10),
     category: 'Tecnología',
   });
 
-  const cuota = useMemo(() => {
+  const interestInfo = useMemo(() => {
     const t = Number(form.total);
     const i = Number(form.installments);
-    return t > 0 && i > 0 ? Math.round(t / i) : 0;
-  }, [form.total, form.installments]);
+    const amt = Number(form.installmentAmount);
+    if (t > 0 && i > 0 && amt > 0) {
+      const totalPaid = amt * i;
+      const intValue = totalPaid - t;
+      const intPercentage = t > 0 ? (intValue / t) * 100 : 0;
+      return { totalPaid, intValue, intPercentage: Math.max(0, parseFloat(intPercentage.toFixed(2))) };
+    }
+    return null;
+  }, [form.total, form.installments, form.installmentAmount]);
 
-  const handleSubmit = () => {
-    addExpense({
-      cardId: form.cardId,
-      desc: form.desc,
-      total: Number(form.total),
-      installments: Number(form.installments),
-      current: 1,
-      date: form.date,
-      category: form.category,
-    });
-    setSaved(true);
-    setTimeout(() => navigate('/'), 1500);
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await addExpense({
+        cardId: form.cardId,
+        desc: form.desc,
+        total: Number(form.total),
+        installments: Number(form.installments),
+        installmentAmount: Number(form.installmentAmount) || Math.round(Number(form.total) / Number(form.installments)),
+        current: 1,
+        date: form.date,
+        category: form.category,
+      });
+      setSaved(true);
+      setTimeout(() => navigate('/'), 1500);
+    } catch (e) {
+      setError('Error al conectar con la base de datos.');
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const valid = form.desc && Number(form.total) > 0 && Number(form.installments) > 0 && form.cardId;
+  const valid = form.desc && Number(form.total) > 0 && Number(form.installments) > 0 && Number(form.installmentAmount) > 0 && form.cardId;
 
   if (saved) {
     return (
@@ -89,10 +110,37 @@ export default function NewExpense() {
           </div>
         </div>
 
-        {cuota > 0 && (
-          <div className="glass-card neon-border rounded-xl p-6 text-center shadow-[0_0_20px_hsl(var(--primary)/0.2)]">
-            <p className="text-white/70 text-xs uppercase tracking-widest mb-2 font-bold">Valor estimado por cuota</p>
-            <p className="text-4xl font-black tracking-display text-primary drop-shadow-[0_0_10px_hsl(var(--primary)/0.4)]">{formatCurrency(cuota)}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Monto por Cuota ($)</Label>
+            <Input type="number" value={form.installmentAmount} onChange={e => {
+              setForm(f => ({ ...f, installmentAmount: e.target.value, interestRate: '' }));
+            }} placeholder="15000" />
+            <p className="text-xs text-muted-foreground mt-1">Ingreso manual requerido</p>
+          </div>
+          <div>
+            <Label>Interés Opcional (%)</Label>
+            <Input type="number" value={form.interestRate} onChange={e => {
+              const rate = Number(e.target.value);
+              setForm(f => {
+                const t = Number(f.total);
+                const i = Number(f.installments);
+                if (t > 0 && i > 0 && rate >= 0) {
+                   const calculated = Math.round((t * (1 + rate / 100)) / i);
+                   return { ...f, interestRate: e.target.value, installmentAmount: String(calculated) };
+                }
+                return { ...f, interestRate: e.target.value };
+              });
+            }} placeholder="50" />
+            <p className="text-xs text-muted-foreground mt-1">Autocalcula la cuota</p>
+          </div>
+        </div>
+
+        {interestInfo && interestInfo.intValue > 0 && (
+          <div className="glass-card neon-border rounded-xl p-4 text-center shadow-[0_0_20px_hsl(var(--primary)/0.1)]">
+            <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Interés Total Cobrado</p>
+            <p className="text-2xl font-black text-warning drop-shadow-[0_0_10px_hsl(var(--warning)/0.2)]">+{formatCurrency(interestInfo.intValue)} <span className="text-sm">({interestInfo.intPercentage}%)</span></p>
+            <p className="text-xs text-muted-foreground mt-1">Pagarás {formatCurrency(interestInfo.totalPaid)} en total al final.</p>
           </div>
         )}
 
@@ -114,8 +162,10 @@ export default function NewExpense() {
           </div>
         </div>
 
-        <Button className="w-full" size="lg" disabled={!valid} onClick={handleSubmit}>
-          Registrar Gasto
+        {error && <p className="text-red-500 text-sm text-center font-bold">{error}</p>}
+
+        <Button className="w-full" size="lg" disabled={!valid || loading} onClick={handleSubmit}>
+          {loading ? 'Guardando...' : 'Registrar Gasto'}
         </Button>
       </div>
     </div>

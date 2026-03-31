@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { CreditCard } from '@/lib/data';
+import { toast } from 'sonner';
 
 const GRADIENTS = [
   { label: 'Azul', value: 'from-blue-600 to-indigo-700' },
@@ -23,6 +24,7 @@ export default function Cards() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CreditCard | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({ bank: '', name: '', gradient: GRADIENTS[0].value, budget: '', lastDigits: '' });
 
@@ -38,14 +40,24 @@ export default function Cards() {
     setOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setLoading(true);
     const data = { bank: form.bank, name: form.name, gradient: form.gradient, budget: Number(form.budget), lastDigits: form.lastDigits };
-    if (editing) {
-      updateCard({ ...data, id: editing.id });
-    } else {
-      addCard(data);
+    try {
+      if (editing) {
+        await updateCard({ ...data, id: editing.id });
+      } else {
+        await addCard(data);
+      }
+      setOpen(false);
+      setEditing(null);
+      setForm({ bank: '', name: '', gradient: GRADIENTS[0].value, budget: '', lastDigits: '' });
+    } catch(e) {
+      console.error(e);
+      toast.error('Error al guardar tarjeta. Verifique su conexión y vuelva a intentar.');
+    } finally {
+      setLoading(false);
     }
-    setOpen(false);
   };
 
   return (
@@ -121,8 +133,8 @@ export default function Cards() {
                 ))}
               </div>
             </div>
-            <Button className="w-full" onClick={handleSave} disabled={!form.bank || !form.name || !form.budget}>
-              {editing ? 'Guardar Cambios' : 'Crear Tarjeta'}
+            <Button className="w-full" onClick={handleSave} disabled={!form.bank || !form.name || !form.budget || loading}>
+              {loading ? 'Guardando...' : editing ? 'Guardar Cambios' : 'Crear Tarjeta'}
             </Button>
           </div>
         </DialogContent>

@@ -15,12 +15,13 @@ export default function CardDetail() {
   const { cards, expenses, deleteExpense, updateExpense, getCardExpenses } = useApp();
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [loadingAction, setLoadingAction] = useState(false);
 
   const card = cards.find(c => c.id === id);
   const cardExpenses = useMemo(() => getCardExpenses(id || ''), [getCardExpenses, id]);
 
   const projected = useMemo(() =>
-    cardExpenses.reduce((acc, e) => acc + Math.round(e.total / e.installments), 0),
+    cardExpenses.reduce((acc, e) => acc + (e.installmentAmount || Math.round(e.total / e.installments)), 0),
     [cardExpenses]
   );
 
@@ -30,7 +31,7 @@ export default function CardDetail() {
       d.setMonth(d.getMonth() + i);
       const total = cardExpenses.reduce((acc, exp) => {
         const remaining = exp.installments - exp.current;
-        return i <= remaining ? acc + Math.round(exp.total / exp.installments) : acc;
+        return i <= remaining ? acc + (exp.installmentAmount || Math.round(exp.total / exp.installments)) : acc;
       }, 0);
       return { name: d.toLocaleString('es-AR', { month: 'short' }), total };
     }),
@@ -97,9 +98,10 @@ export default function CardDetail() {
               <thead>
                 <tr className="bg-secondary text-muted-foreground text-[10px] uppercase tracking-widest">
                   <th className="px-6 py-4 font-semibold">Gasto</th>
-                  <th className="px-6 py-4 font-semibold text-right">Cuota</th>
+                  <th className="px-6 py-4 font-semibold text-right">Vr. Cuota</th>
+                  <th className="px-6 py-4 font-semibold text-right">Interés</th>
                   <th className="px-6 py-4 font-semibold text-center">Progreso</th>
-                  <th className="px-6 py-4 font-semibold text-right">Total</th>
+                  <th className="px-6 py-4 font-semibold text-right">Total Orig.</th>
                   <th className="px-6 py-4"></th>
                 </tr>
               </thead>
@@ -120,25 +122,41 @@ export default function CardDetail() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="text-foreground font-bold text-sm tracking-display">{formatCurrency(Math.round(exp.total / exp.installments))}</p>
+                        <p className="text-foreground font-bold text-sm tracking-display">{formatCurrency(exp.installmentAmount || Math.round(exp.total / exp.installments))}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-warning font-medium text-xs">
+                          {((exp.installmentAmount * exp.installments) - exp.total) > 0 ? 
+                            `+${formatCurrency((exp.installmentAmount * exp.installments) - exp.total)}` : 
+                            '$0'}
+                        </p>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">{exp.current} de {exp.installments}</span>
+                          <span className="text-[10px] text-muted-foreground">{remaining} restantes ({exp.current}/{exp.installments})</span>
                           <div className="w-24 bg-secondary h-1 rounded-full overflow-hidden">
                             <div className="bg-primary h-full rounded-full" style={{ width: `${(exp.current / exp.installments) * 100}%` }} />
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="text-muted-foreground text-xs">{formatCurrency(exp.total)}</p>
+                        <p className="text-muted-foreground font-bold text-xs">{formatCurrency(exp.total)}</p>
                       </td>
                       <td className="px-6 py-4 opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => setEditingExpense({...exp})} className="text-muted-foreground hover:text-primary transition-colors">
                             <Pencil size={16} />
                           </button>
-                          <button onClick={() => deleteExpense(exp.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                          <button onClick={async () => {
+                            setLoadingAction(true);
+                            try {
+                              await deleteExpense(exp.id);
+                            } catch (e) {
+                              toast({ title: 'Error', description: 'No se pudo eliminar el gasto', variant: 'destructive' });
+                            } finally {
+                              setLoadingAction(false);
+                            }
+                          }} disabled={loadingAction} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50">
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -169,11 +187,15 @@ export default function CardDetail() {
                     <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.total} onChange={e => setEditingExpense({...editingExpense, total: Number(e.target.value)})} />
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground">Categoría</label>
-                    <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.category} onChange={e => setEditingExpense({...editingExpense, category: e.target.value})}>
-                      {CATEGORIES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
-                    </select>
+                    <label className="text-sm text-muted-foreground">Monto por Cuota</label>
+                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installmentAmount || ''} onChange={e => setEditingExpense({...editingExpense, installmentAmount: Number(e.target.value)})} />
                   </div>
+               </div>
+               <div>
+                 <label className="text-sm text-muted-foreground">Categoría</label>
+                 <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.category} onChange={e => setEditingExpense({...editingExpense, category: e.target.value})}>
+                   {CATEGORIES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
+                 </select>
                </div>
                <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -185,10 +207,19 @@ export default function CardDetail() {
                     <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installments} onChange={e => setEditingExpense({...editingExpense, installments: Number(e.target.value)})} />
                   </div>
                </div>
-               <Button className="w-full" onClick={() => {
-                  updateExpense(editingExpense);
-                  setEditingExpense(null);
-               }}>Guardar</Button>
+               <Button className="w-full" disabled={loadingAction} onClick={async () => {
+                  setLoadingAction(true);
+                  try {
+                    await updateExpense(editingExpense);
+                    setEditingExpense(null);
+                  } catch (e) {
+                    toast({ title: 'Error al actualizar', variant: 'destructive' });
+                  } finally {
+                    setLoadingAction(false);
+                  }
+               }}>
+                 {loadingAction ? 'Guardando...' : 'Guardar'}
+               </Button>
             </div>
           </DialogContent>
         </Dialog>

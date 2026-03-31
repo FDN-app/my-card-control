@@ -1,18 +1,74 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ChevronRight, Bell, Printer, History } from 'lucide-react';
+import { AlertCircle, ChevronRight, Bell, Printer, History, Sparkles, Loader2, TrendingUp } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '@/lib/store';
 import { formatCurrency } from '@/lib/data';
 import { CreditCardVisual } from '@/components/CreditCardVisual';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useSubscriptions } from '@/hooks/useSubscriptions';
+import { generateMonthlySummary, generateNextMonthPrediction } from '@/services/openai';
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f97316'];
 
 export default function Dashboard() {
-  const { cards, expenses, subscriptions, alertThreshold, subscriptionAlertDays, getCardProjected, nextMonthTotal, totalBudget } = useApp();
+  const { cards, expenses, alertThreshold, subscriptionAlertDays, getCardProjected, nextMonthTotal, totalBudget } = useApp();
+  const { subscriptions } = useSubscriptions();
   const navigate = useNavigate();
   const [showHistory, setShowHistory] = useState(false);
+
+  const [summary, setSummary] = useState<string | null>(() => localStorage.getItem('lastOpenAI_Summary'));
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+
+  const [prediction, setPrediction] = useState<any>(null);
+  const [loadingPrediction, setLoadingPrediction] = useState(false);
+
+  const handleGenerateSummary = async () => {
+    setLoadingSummary(true);
+    setShowSummaryModal(true);
+    try {
+      // Tomamos contexto requerido
+      const context = {
+        totalPresupuesto: totalBudget,
+        metricsTarjetas: cards, // No enviamos 'metrics' entero por si es circular
+        suscripcionesActivas: subscriptions.filter(s => s.estado === 'Activa').map(s => ({ nombre: s.nombre, monto: s.monto })),
+        gastosTotalesNextMonth: nextMonthTotal
+      };
+      const result = await generateMonthlySummary(context);
+      setSummary(result);
+      localStorage.setItem('lastOpenAI_Summary', result);
+    } catch (e: any) {
+      setSummary("Hubo un error al generar el resumen: " + e.message);
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
+  const handleGeneratePrediction = async () => {
+    setLoadingPrediction(true);
+    try {
+      const tresMeses = new Date();
+      tresMeses.setMonth(tresMeses.getMonth() - 3);
+      const limitDate = tresMeses.toISOString();
+
+      const context = {
+        presupuestosTotales: totalBudget,
+        tarjetas: cards,
+        suscripcionesActivas: subscriptions.filter(s => s.estado === 'Activa').map(s => ({ nombre: s.nombre, monto: s.monto })),
+        gastosRecientes: expenses.filter(e => e.date >= limitDate).map(e => ({ desc: e.desc, category: e.category, installment: e.installmentAmount || Math.round(e.total/e.installments), cuotasRestantes: e.installments - e.current  })),
+      };
+      
+      const result = await generateNextMonthPrediction(context);
+      setPrediction(result);
+    } catch (e: any) {
+      console.error(e);
+      setPrediction({ error: e.message });
+    } finally {
+      setLoadingPrediction(false);
+    }
+  };
 
   const metrics = useMemo(() => {
     const cardMetrics = cards.map(card => {
@@ -24,7 +80,7 @@ export default function Dashboard() {
 
     const categoryMap: Record<string, number> = {};
     expenses.forEach(e => {
-      const cuota = Math.round(e.total / e.installments);
+      const cuota = e.installmentAmount || Math.round(e.total / e.installments);
       categoryMap[e.category] = (categoryMap[e.category] || 0) + cuota;
     });
     const pieData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
@@ -39,9 +95,9 @@ export default function Dashboard() {
     today.setHours(0, 0, 0, 0);
 
     const upcoming = subscriptions
-      .filter(s => s.status === 'Activa')
+      .filter(s => s.estado === 'Activa')
       .map(s => {
-        const billingDate = new Date(s.nextBillingDate + 'T00:00:00');
+        const billingDate = new Date(s.fecha_proximo_cobro + 'T00:00:00');
         const diffTime = billingDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return { ...s, diffDays };
@@ -73,6 +129,9 @@ export default function Dashboard() {
           </div>
           <Button variant={showHistory ? 'default' : 'outline'} size="icon" onClick={() => setShowHistory(!showHistory)} className="border-border/50 hover:bg-secondary/80" title="Ver Historial">
              <History size={18} />
+          </Button>
+          <Button onClick={() => summary ? setShowSummaryModal(true) : handleGenerateSummary()} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2" title="Resumen Inteligente">
+             <Sparkles size={16} /> <span className="hidden md:inline">Resumen IA</span>
           </Button>
           <Button variant="outline" size="icon" onClick={() => window.print()} className="print:hidden border-border/50 bg-secondary/30 hover:bg-secondary/80" title="Exportar a PDF">
              <Printer size={18} />
@@ -145,7 +204,7 @@ export default function Dashboard() {
               <Bell size={24} />
               <div>
                 <p className="font-bold text-sm">Cobro Próximo</p>
-                <p className="text-xs opacity-80">{sa.name} se debitará en {sa.diffDays === 0 ? 'hoy' : `${sa.diffDays} días`} por {formatCurrency(sa.amount)}.</p>
+                <p className="text-xs opacity-80">{sa.nombre} se debitará en {sa.diffDays === 0 ? 'hoy' : `${sa.diffDays} días`} por {formatCurrency(sa.monto)}.</p>
               </div>
             </div>
           ))}
@@ -195,6 +254,88 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* Predicción IA */}
+          <div className="surface-elevated rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10" />
+            
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <TrendingUp className="text-primary" /> Predicción del Próximo Mes
+              </h2>
+              {!prediction && !loadingPrediction && (
+                <Button variant="outline" className="border-primary/20 hover:bg-primary/10 text-primary gap-2" onClick={handleGeneratePrediction}>
+                  <Sparkles size={16} /> Analizar
+                </Button>
+              )}
+            </div>
+
+            {loadingPrediction && (
+              <div className="flex flex-col items-center justify-center py-8 text-center animate-fade-in">
+                <Loader2 className="animate-spin text-primary mb-4" size={32} />
+                <p className="text-muted-foreground text-sm">Calculando estimaciones basándose en tu historial...</p>
+              </div>
+            )}
+
+            {prediction?.error && (
+              <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm text-center">
+                No se pudo generar la predicción: {prediction.error}
+              </div>
+            )}
+
+            {prediction && !prediction.error && (
+              <div className="animate-fade-in space-y-6">
+                {prediction.alertaPresupuestoGlobal && (
+                  <div className="p-4 rounded-xl glass-card border-destructive/50 text-destructive flex items-start gap-4">
+                    <AlertCircle className="shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Alerta Presupuestaria General</p>
+                      <p className="text-sm opacity-90">{prediction.mensajeGeneral}</p>
+                    </div>
+                  </div>
+                )}
+                {!prediction.alertaPresupuestoGlobal && prediction.mensajeGeneral && (
+                  <p className="text-muted-foreground italic text-sm">{prediction.mensajeGeneral}</p>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                     <h3 className="font-bold text-foreground mb-4 opacity-80 uppercase tracking-widest text-[10px]">Gasto Esperado</h3>
+                     <div className="space-y-3">
+                       {prediction.totalGastosCategoria?.map((cat: any, i: number) => (
+                          <div key={i} className="flex justify-between items-center bg-secondary/30 p-2.5 rounded-lg text-sm">
+                            <span className="text-muted-foreground font-medium">{cat.categoria}</span>
+                            <span className="font-bold text-foreground">{formatCurrency(cat.monto)}</span>
+                          </div>
+                       ))}
+                       {(!prediction.totalGastosCategoria || prediction.totalGastosCategoria.length === 0) && (
+                          <p className="text-xs text-muted-foreground">No hay estimaciones suficientes.</p>
+                       )}
+                     </div>
+                  </div>
+                  
+                  <div>
+                     <h3 className="font-bold text-foreground mb-4 opacity-80 uppercase tracking-widest text-[10px]">Alertas de Tarjetas</h3>
+                     {(!prediction.riesgoTarjetas || prediction.riesgoTarjetas.length === 0) ? (
+                       <p className="text-muted-foreground text-sm bg-success/10 text-success p-3 rounded-xl border border-success/20">No hay tarjetas en riesgo inminente.</p>
+                     ) : (
+                       <div className="space-y-3">
+                         {prediction.riesgoTarjetas?.map((riesgo: any, i: number) => (
+                            <div key={i} className="flex items-start gap-3 bg-secondary/20 p-3 rounded-xl border border-border">
+                               {riesgo.alertaCritica ? <AlertCircle className="text-destructive shrink-0 mt-0.5" size={16} /> : <AlertCircle className="text-warning shrink-0 mt-0.5" size={16} />}
+                               <div>
+                                 <p className={`font-bold text-sm ${riesgo.alertaCritica ? 'text-destructive' : 'text-warning'}`}>{riesgo.nombreTarjeta}</p>
+                                 <p className="text-xs text-muted-foreground mt-1">{riesgo.mensaje}</p>
+                               </div>
+                            </div>
+                         ))}
+                       </div>
+                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sidebar content */}
@@ -216,7 +357,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-primary font-bold text-sm">{formatCurrency(Math.round(exp.total / exp.installments))}</p>
+                      <p className="text-primary font-bold text-sm">{formatCurrency(exp.installmentAmount || Math.round(exp.total / exp.installments))}</p>
                       <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
                         {exp.current}/{exp.installments}
                       </span>
@@ -237,22 +378,22 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-3">
               {subMetrics.map(sub => {
-                const card = cards.find(c => c.id === sub.cardId);
+                const card = cards.find(c => c.id === sub.tarjeta_id);
                 return (
                   <div key={sub.id} className="surface-elevated p-4 rounded-xl flex items-center justify-between interactive-press" onClick={() => navigate('/suscripciones')}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-secondary/80 flex items-center justify-center">
-                        <span className="text-lg font-bold">{sub.name.charAt(0)}</span>
+                        <span className="text-lg font-bold">{sub.nombre.charAt(0).toUpperCase()}</span>
                       </div>
                       <div>
-                        <p className="text-foreground font-medium text-sm">{sub.name}</p>
+                        <p className="text-foreground font-medium text-sm">{sub.nombre}</p>
                         <p className="text-muted-foreground text-xs flex items-center gap-1">
-                          {card?.bank || 'Tarjeta'} • Falta{sub.diffDays !== 1 ? 'n' : ''} {sub.diffDays === 0 ? 'hoy' : `${sub.diffDays} d`}
+                          {card?.bank || 'Tarjeta Borrada'} • Falta{sub.diffDays !== 1 ? 'n' : ''} {sub.diffDays === 0 ? 'hoy' : `${sub.diffDays} d`}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-foreground font-bold text-sm">{formatCurrency(sub.amount)}</p>
+                      <p className="text-foreground font-bold text-sm">{formatCurrency(sub.monto)}</p>
                     </div>
                   </div>
                 );
@@ -263,6 +404,35 @@ export default function Dashboard() {
       </div>
       </>
       )}
+
+      {/* OpenAI Summary Modal */}
+      <Dialog open={showSummaryModal} onOpenChange={setShowSummaryModal}>
+        <DialogContent className="glass-panel border-border sm:max-w-xl max-h-[80vh] overflow-y-auto w-[90vw]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Sparkles className="text-primary" size={20} />
+              Análisis Inteligente del Mes
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 text-foreground text-sm leading-relaxed whitespace-pre-wrap">
+            {loadingSummary ? (
+              <div className="flex flex-col items-center justify-center py-10 opacity-70">
+                <Loader2 className="animate-spin mb-4" size={32} />
+                <p>Analizando tus finanzas con IA...</p>
+              </div>
+            ) : summary ? (
+              <div dangerouslySetInnerHTML={{ __html: summary.replace(/\n|-(?=\s)/g, '<br/>&bull;') }} />
+            ) : null}
+            {!loadingSummary && (
+              <div className="mt-8 flex justify-end">
+                <Button variant="outline" onClick={handleGenerateSummary} className="gap-2 text-xs h-8" disabled={loadingSummary}>
+                   <Sparkles size={12} /> Volver a Generar
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
