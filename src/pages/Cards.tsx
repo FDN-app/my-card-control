@@ -52,8 +52,8 @@ export default function Cards() {
     <div className="space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-muted-foreground text-sm mb-1">Gestión</p>
-          <h2 className="text-3xl font-bold tracking-display text-foreground">Mis Tarjetas</h2>
+          <p className="text-muted-foreground text-sm mb-1 uppercase tracking-widest pl-1">Gestión</p>
+          <h2 className="text-4xl md:text-5xl font-black tracking-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto]">Mis Tarjetas</h2>
         </div>
         <Button onClick={openNew} className="gap-2">
           <Plus size={18} /> Nueva Tarjeta
@@ -84,7 +84,7 @@ export default function Cards() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-card border-border">
+        <DialogContent className="glass-panel border-border sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-foreground">{editing ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</DialogTitle>
           </DialogHeader>

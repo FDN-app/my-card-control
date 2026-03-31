@@ -1,19 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '@/lib/store';
-import { formatCurrency } from '@/lib/data';
+import { formatCurrency, type Expense, CATEGORIES } from '@/lib/data';
 import { CreditCardVisual } from '@/components/CreditCardVisual';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function CardDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { cards, expenses } = useApp();
+  const { cards, expenses, deleteExpense, updateExpense, getCardExpenses } = useApp();
+  const { toast } = useToast();
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const card = cards.find(c => c.id === id);
-  const cardExpenses = useMemo(() => expenses.filter(e => e.cardId === id), [expenses, id]);
+  const cardExpenses = useMemo(() => getCardExpenses(id || ''), [getCardExpenses, id]);
 
   const projected = useMemo(() =>
     cardExpenses.reduce((acc, e) => acc + Math.round(e.total / e.installments), 0),
@@ -69,7 +73,7 @@ export default function CardDetail() {
         <div className="lg:col-span-2 space-y-6">
           {/* Projection chart */}
           <div className="surface-elevated rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-foreground mb-6">Proyección de Deuda (6 meses)</h3>
+            <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto] mb-6">Proyección de Deuda (6 meses)</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={projectionData}>
@@ -96,13 +100,14 @@ export default function CardDetail() {
                   <th className="px-6 py-4 font-semibold text-right">Cuota</th>
                   <th className="px-6 py-4 font-semibold text-center">Progreso</th>
                   <th className="px-6 py-4 font-semibold text-right">Total</th>
+                  <th className="px-6 py-4"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {cardExpenses.map(exp => {
                   const remaining = exp.installments - exp.current;
                   return (
-                    <tr key={exp.id} className="hover:bg-secondary/50 transition-colors">
+                    <tr key={exp.id} className="hover:bg-secondary/50 transition-colors group">
                       <td className="px-6 py-4">
                         <p className="text-foreground font-medium text-sm">{exp.desc}</p>
                         <div className="flex items-center gap-2">
@@ -128,6 +133,16 @@ export default function CardDetail() {
                       <td className="px-6 py-4 text-right">
                         <p className="text-muted-foreground text-xs">{formatCurrency(exp.total)}</p>
                       </td>
+                      <td className="px-6 py-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setEditingExpense({...exp})} className="text-muted-foreground hover:text-primary transition-colors">
+                            <Pencil size={16} />
+                          </button>
+                          <button onClick={() => deleteExpense(exp.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -136,6 +151,48 @@ export default function CardDetail() {
           </div>
         </div>
       </div>
+
+      {editingExpense && (
+        <Dialog open={!!editingExpense} onOpenChange={(o) => !o && setEditingExpense(null)}>
+          <DialogContent className="glass-panel border-border sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Editar Gasto</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+               <div>
+                  <label className="text-sm text-muted-foreground">Descripción</label>
+                  <input className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.desc} onChange={e => setEditingExpense({...editingExpense, desc: e.target.value})} />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-muted-foreground">Monto Total</label>
+                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.total} onChange={e => setEditingExpense({...editingExpense, total: Number(e.target.value)})} />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">Categoría</label>
+                    <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.category} onChange={e => setEditingExpense({...editingExpense, category: e.target.value})}>
+                      {CATEGORIES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
+                    </select>
+                  </div>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-muted-foreground">Cuotas (Actual)</label>
+                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.current} onChange={e => setEditingExpense({...editingExpense, current: Number(e.target.value)})} />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">Cuotas (Total)</label>
+                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installments} onChange={e => setEditingExpense({...editingExpense, installments: Number(e.target.value)})} />
+                  </div>
+               </div>
+               <Button className="w-full" onClick={() => {
+                  updateExpense(editingExpense);
+                  setEditingExpense(null);
+               }}>Guardar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
-  const { cards, updateCard, alertThreshold, setAlertThreshold } = useApp();
+  const { cards, updateCard, alertThreshold, setAlertThreshold, subscriptionAlertDays, setSubscriptionAlertDays } = useApp();
   const { toast } = useToast();
   const [profile, setProfile] = useState({ name: 'Tomas Cook', email: 'tomas@cuotactrl.com' });
 
@@ -59,6 +59,25 @@ export default function SettingsPage() {
             className="flex-1"
           />
           <span className="text-2xl font-bold tracking-display text-primary w-16 text-right">{alertThreshold}%</span>
+        </div>
+      </div>
+
+      {/* Subscription Alert threshold */}
+      <div className="surface-elevated rounded-2xl p-6 space-y-4">
+        <h3 className="text-foreground font-bold text-lg">Alerta de Suscripciones</h3>
+        <p className="text-muted-foreground text-sm">
+          Avisarme cuando una suscripción activa se cobre en los próximos días.
+        </p>
+        <div className="flex items-center gap-6">
+          <Slider
+            value={[subscriptionAlertDays]}
+            onValueChange={v => setSubscriptionAlertDays(v[0])}
+            min={1}
+            max={7}
+            step={1}
+            className="flex-1"
+          />
+          <span className="text-2xl font-bold tracking-display text-primary w-16 text-right">{subscriptionAlertDays} d</span>
         </div>
       </div>
 

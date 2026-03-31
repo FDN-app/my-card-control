@@ -1,0 +1,268 @@
+
+💳
+CuotaCtrl
+Control inteligente de gastos en tarjeta de crédito
+Documento Maestro  |  v1.0
+Junio 2025
+
+1. Visión General
+Nombre
+CuotaCtrl
+Versión
+1.0 — MVP
+Plataforma
+Web (browser) — responsive desktop y mobile
+Stack
+Next.js 14 · TypeScript · Tailwind CSS · Supabase · Vercel
+Autor
+Tano
+
+Problema
+Usar tarjetas de crédito en cuotas hace difícil saber cuánto dinero realmente se va a deber el mes siguiente. Cuando hay múltiples compras en cuotas activas, es muy fácil perder de vista el total comprometido y terminar gastando de más.
+
+Solución
+CuotaCtrl es una aplicación web que centraliza todas las tarjetas y compras en cuotas del usuario. Calcula automáticamente la deuda proyectada para el próximo resumen, muestra cuánto espacio de presupuesto queda disponible y alerta cuando el usuario se acerca a su límite o cuando una cuota larga está por terminar.
+
+2. Funcionalidades del MVP
+2.1 Dashboard Principal
+Cards por tarjeta: nombre, banco, deuda próximo mes, espacio disponible, barra de progreso
+Sección de cuotas que terminan pronto (1–2 cuotas restantes)
+Gráfico de gastos por categoría (pie chart)
+Panel de alertas al tope si hay presupuesto superado o cerca del límite
+
+2.2 Gestión de Tarjetas
+Agregar, editar y eliminar tarjetas
+Configurar: nombre, banco, límite del banco, presupuesto propio, día de cierre y vencimiento
+Visualización tipo tarjeta física con gradiente y color personalizable
+
+2.3 Carga de Gastos
+Manual: formulario con tarjeta, descripción, monto, cuotas, fecha y categoría
+OCR: foto del resumen físico → Tesseract.js → revisión y confirmación
+Importación: PDF o CSV del resumen bancario → parse → revisión y confirmación
+
+2.4 Lógica de Proyección
+Deuda próximo mes: suma de cuotas activas que caen en el próximo resumen
+Cuotas pendientes: cuotas_total − cuota_actual por cada gasto
+Espacio disponible: presupuesto_propio − cuotas proyectadas para el próximo resumen
+Proyección mes a mes: vista de los próximos 6 meses por tarjeta
+
+2.5 Sistema de Alertas
+Alerta naranja cuando el espacio disponible cae por debajo del % configurable (default: 80%)
+Alerta roja cuando el presupuesto ya está superado
+Notificación &quot;Última cuota&quot; cuando un gasto tiene solo 1 cuota restante
+Porcentaje de alerta configurable por el usuario desde Configuración
+
+3. Modelo de Datos (Supabase)
+3.1 Tabla: tarjetas
+Campo
+Tipo
+Descripción
+id
+uuid (PK)
+Identificador único
+user_id
+uuid (FK)
+Referencia a auth.users
+nombre
+text
+Ej: &quot;Visa Santander&quot;
+banco
+text
+Nombre del banco emisor
+limite_banco
+numeric
+Límite otorgado por el banco
+presupuesto_propio
+numeric
+Límite personal del usuario
+dia_cierre
+int
+Día del mes de cierre del resumen
+dia_vencimiento
+int
+Día del mes de vencimiento
+color
+text
+Color hex para identificar la tarjeta
+
+3.2 Tabla: gastos
+Campo
+Tipo
+Descripción
+id
+uuid (PK)
+Identificador único
+tarjeta_id
+uuid (FK)
+Referencia a tarjetas
+descripcion
+text
+Descripción del gasto
+monto_total
+numeric
+Monto total de la compra
+cuotas_total
+int
+Cantidad total de cuotas (1 = débito)
+cuota_actual
+int
+Cuota en la que se está actualmente
+fecha_primera_cuota
+date
+Fecha de acreditación de la cuota 1
+monto_cuota
+numeric
+monto_total ÷ cuotas_total
+categoria
+text
+Enum: Alimentación, Transporte, etc.
+
+3.3 Categorías disponibles
+🍔 Alimentación
+🚗 Transporte
+👕 Indumentaria
+💻 Tecnología
+❤️ Salud
+🎬 Entretenimiento
+📡 Servicios
+📦 Otros
+
+4. Pantallas y Rutas
+Ruta
+Pantalla
+Descripción
+/
+Dashboard General
+Resumen de todas las tarjetas, alertas y gráfico de categorías
+/tarjetas
+Gestión de Tarjetas
+Lista de tarjetas con opción de agregar, editar y eliminar
+/tarjetas/[id]
+Detalle de Tarjeta
+Gastos activos, proyección 6 meses y cuotas pendientes
+/gastos/nuevo
+Carga Manual
+Formulario de nuevo gasto con cuotas y categoría
+/gastos/importar
+Importación OCR/PDF/CSV
+Subir foto o archivo → revisar → confirmar gastos
+/configuracion
+Configuración
+Presupuestos, % de alerta y datos del perfil
+/login
+Autenticación
+Login y registro con email/contraseña vía Supabase Auth
+
+5. Stack Tecnológico
+Frontend
+Next.js 14 (App Router) + TypeScript + Tailwind CSS
+Base de datos
+Supabase (PostgreSQL + Row Level Security)
+Autenticación
+Supabase Auth (email/contraseña)
+OCR
+Tesseract.js (reconocimiento en el browser)
+Importación PDF
+pdf-parse (Node.js)
+Importación CSV
+Papa Parse
+Gráficos
+Recharts
+Íconos
+Lucide React
+Emails/alertas
+Resend
+Deploy
+Vercel
+Almacenamiento
+Supabase Storage (fotos de resúmenes)
+
+6. Prompt para Lovable / Cursor
+Copiá el texto de abajo y pegalo directamente en Lovable.dev o como contexto inicial en Cursor.
+
+ 
+Construí un prototipo completo y funcional de una aplicación web llamada CuotaCtrl.
+ 
+El propósito es ayudar al usuario a controlar sus gastos de tarjeta de crédito en cuotas: saber cuánto va a deber el próximo mes, cuántas cuotas le quedan de cada compra, cuánto presupuesto disponible le queda y recibir alertas cuando se acerca a su límite o cuando termina una cuota larga.
+ 
+El prototipo debe tener datos de ejemplo precargados (mínimo 2 tarjetas y 8 gastos en cuotas variadas) para que se pueda navegar y probar todas las pantallas sin necesidad de registrarse ni configurar nada. Todo el estado puede vivir en memoria o localStorage. Hacé que se vea y funcione como una app real lista para mostrar.
+ 
+---
+ 
+LÓGICA DE NEGOCIO:
+ 
+1. Proyección del próximo mes: suma de todas las cuotas activas que caen en el próximo resumen de cada tarjeta.
+2. Cuotas pendientes: cuotas_total - cuota_actual para cada gasto.
+3. Espacio disponible: presupuesto_propio - suma de cuotas proyectadas para el próximo resumen.
+4. Alertas:
+   - Cuando espacio_disponible &lt; 20% del presupuesto_propio → mostrar alerta naranja
+   - Cuando espacio_disponible &lt; 0 → mostrar alerta roja &quot;Presupuesto superado&quot;
+   - Cuando un gasto tiene cuotas_pendientes == 1 → mostrar badge &quot;Última cuota&quot;
+5. El porcentaje de alerta de límite debe ser configurable por el usuario (default 80%).
+ 
+---
+ 
+PANTALLAS:
+ 
+/ — Dashboard general
+  - Cards por tarjeta: nombre, banco, color, deuda próximo mes, espacio disponible, barra de progreso de presupuesto
+  - Sección &quot;Cuotas que terminan pronto&quot; (las que tienen 1-2 cuotas restantes)
+  - Gráfico de gastos por categoría (pie chart)
+  - Panel de alertas destacadas al tope si hay presupuesto superado o cerca del límite
+ 
+/tarjetas — Gestión de tarjetas
+  - Listar todas las tarjetas del usuario
+  - Botón para agregar nueva tarjeta (modal o página)
+  - Editar / eliminar tarjeta existente
+ 
+/tarjetas/[id] — Detalle de tarjeta
+  - Resumen de la tarjeta seleccionada
+  - Lista de todos los gastos activos con cuotas restantes
+  - Proyección mes a mes de los próximos 6 meses
+  - Botón para agregar gasto a esta tarjeta
+ 
+/gastos/nuevo — Carga manual
+  - Formulario: tarjeta, descripción, monto total, cuotas, fecha primera cuota, categoría
+  - Preview del monto por cuota calculado automáticamente al ingresar los datos
+ 
+/gastos/importar — Importación (pantalla de UI simulada)
+  - Tab 1: área para subir foto del resumen → mostrar tabla de gastos de ejemplo como si hubiera sido procesada → el usuario confirma/edita → guardar
+  - Tab 2: área para subir PDF o CSV → idem, tabla de gastos de ejemplo para confirmar
+  - Los gastos detectados deben poder editarse antes de guardar
+ 
+/configuracion — Configuración
+  - Presupuesto propio por tarjeta (editable)
+  - Porcentaje de alerta configurable (slider 50%–95%, default 80%)
+  - Datos del perfil (nombre, email)
+ 
+---
+ 
+DISEÑO:
+- Paleta oscura tipo fintech moderno: fondo #0F172A, cards #1E293B, accent azul #1A56DB, textos blancos y grises
+- Sidebar izquierdo con navegación: links a cada sección con íconos
+- Responsive: debe verse bien en mobile y desktop
+- Usar Lucide React para íconos
+- Las tarjetas de crédito deben renderizarse como tarjetas visuales con gradiente, nombre del banco y chip decorativo
+ 
+7. Roadmap
+v1.0 — MVP (este documento)
+Autenticación básica
+Gestión de tarjetas
+Carga manual de gastos en cuotas
+Importación OCR / PDF / CSV
+Dashboard con proyección y alertas
+Configuración de presupuesto y % de alerta
+
+v1.1 — Mejoras
+Notificaciones por email (Resend) para alertas
+Exportar resumen mensual a PDF
+Editar y eliminar gastos
+Historial de meses cerrados
+
+v2.0 — Avanzado
+Compartir vista de resumen (modo lectura) con otra persona
+Integración con APIs bancarias (cuando estén disponibles en Argentina)
+App mobile con React Native / Expo
+
+CuotaCtrl — Documento Maestro v1.0 — Uso personal
+

@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CreditCard, PlusCircle, FileUp, Settings, TrendingDown,
+  LayoutDashboard, CreditCard, PlusCircle, FileUp, Settings, TrendingDown, Bell
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { icon: CreditCard, label: 'Mis Tarjetas', path: '/tarjetas' },
   { icon: PlusCircle, label: 'Nuevo Gasto', path: '/gastos/nuevo' },
   { icon: FileUp, label: 'Importar', path: '/gastos/importar' },
+  { icon: Bell, label: 'Suscripciones', path: '/suscripciones' },
 ];
 
 function SidebarItem({ icon: Icon, label, active, onClick }: {
@@ -16,10 +17,10 @@ function SidebarItem({ icon: Icon, label, active, onClick }: {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 interactive-press ${
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 interactive-press ${
         active
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+          ? 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_hsl(var(--primary)/0.2)]'
+          : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground border border-transparent'
       }`}
     >
       <Icon size={20} strokeWidth={active ? 2.5 : 2} />
@@ -39,13 +40,19 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen flex">
+      {/* Sidebar background effects */}
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-accent/20 blur-[120px]"></div>
+      </div>
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border hidden md:flex flex-col p-6 fixed h-full bg-background z-20">
-        <div className="flex items-center gap-3 mb-10 px-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
-            <TrendingDown size={18} className="text-primary-foreground" />
+      <aside className="w-64 border-r border-white/5 hidden md:flex flex-col p-6 fixed h-full glass-panel z-20">
+        <div className="flex items-center gap-3 mb-10 px-2 group cursor-pointer">
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center neon-border group-hover:shadow-[0_0_20px_hsl(var(--primary)/0.6)] transition-shadow duration-300">
+            <TrendingDown size={20} className="text-primary-foreground stroke-[2.5px]" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">CuotaCtrl</h1>
+          <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto]">CuotaCtrl</h1>
         </div>
 
         <nav className="space-y-2 flex-1">
@@ -85,7 +92,7 @@ export default function AppLayout() {
       </main>
 
       {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card/80 backdrop-blur-lg border-t border-border px-6 py-3 flex justify-between items-center z-30">
+      <nav className="md:hidden fixed bottom-4 left-4 right-4 glass-panel rounded-2xl px-6 py-3 flex justify-between items-center z-30 shadow-[0_8px_32px_0_rgba(0,0,0,0.6)]">
         {NAV_ITEMS.map(item => (
           <button
             key={item.path}

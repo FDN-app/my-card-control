@@ -56,8 +56,8 @@ export default function NewExpense() {
   return (
     <div className="max-w-xl mx-auto space-y-8 animate-fade-in">
       <div>
-        <p className="text-muted-foreground text-sm mb-1">Registrar</p>
-        <h2 className="text-3xl font-bold tracking-display text-foreground">Nuevo Gasto</h2>
+        <p className="text-muted-foreground text-sm mb-1 uppercase tracking-widest pl-1">Registrar</p>
+        <h2 className="text-4xl md:text-5xl font-black tracking-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto]">Nuevo Gasto</h2>
       </div>
 
       <div className="surface-elevated rounded-2xl p-6 space-y-5">
@@ -90,9 +90,9 @@ export default function NewExpense() {
         </div>
 
         {cuota > 0 && (
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
-            <p className="text-muted-foreground text-xs uppercase tracking-widest mb-1">Valor por cuota</p>
-            <p className="text-2xl font-bold tracking-display text-primary">{formatCurrency(cuota)}</p>
+          <div className="glass-card neon-border rounded-xl p-6 text-center shadow-[0_0_20px_hsl(var(--primary)/0.2)]">
+            <p className="text-white/70 text-xs uppercase tracking-widest mb-2 font-bold">Valor estimado por cuota</p>
+            <p className="text-4xl font-black tracking-display text-primary drop-shadow-[0_0_10px_hsl(var(--primary)/0.4)]">{formatCurrency(cuota)}</p>
           </div>
         )}
 
