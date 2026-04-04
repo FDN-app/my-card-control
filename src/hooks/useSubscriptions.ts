@@ -53,7 +53,8 @@ export const useSubscriptions = () => {
   // Update subscription
   const updateSubscription = useMutation({
     mutationFn: async (updatedSub: Subscription) => {
-      const { id, user_id, created_at, ...updateData } = updatedSub;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, user_id, created_at, diffDays, ...updateData } = updatedSub as any;
       
       const { data, error } = await supabase
         .from('suscripciones')

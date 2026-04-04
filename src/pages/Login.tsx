@@ -71,8 +71,31 @@ export default function Login() {
                 className="bg-slate-950 border-slate-800 text-white"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-300">Contraseña</Label>
+            
+            <div className="space-y-2 relative">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password" className="text-slate-300">Contraseña</Label>
+                {!isSignUp && (
+                  <button 
+                    type="button" 
+                    onClick={async () => {
+                      if (!email) return toast.error("Ingresa tu email primero para recuperar tu contraseña.");
+                      try {
+                        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                          redirectTo: window.location.origin + '/login',
+                        });
+                        if (error) throw error;
+                        toast.success("Correo de recuperación enviado.");
+                      } catch (err: any) {
+                        toast.error(err.message || "Error al enviar recuperación.");
+                      }
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                )}
+              </div>
               <Input 
                 id="password" 
                 type="password"

@@ -48,7 +48,7 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
           nombre: subscriptionToEdit.nombre,
           monto: subscriptionToEdit.monto,
           tarjeta_id: subscriptionToEdit.tarjeta_id || cards[0]?.id || '',
-          fecha_proximo_cobro: subscriptionToEdit.fecha_proximo_cobro,
+          fecha_proximo_cobro: subscriptionToEdit.fecha_proximo_cobro ? subscriptionToEdit.fecha_proximo_cobro.split('T')[0] : new Date().toISOString().split('T')[0],
           periodicidad: subscriptionToEdit.periodicidad,
           estado: subscriptionToEdit.estado,
           notas: subscriptionToEdit.notas || '',
@@ -74,7 +74,8 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
       if (subscriptionToEdit) {
         await updateSubscription.mutateAsync({ 
           ...subscriptionToEdit, 
-          ...data 
+          ...data,
+          tarjeta_id: data.tarjeta_id || null, 
         });
       } else {
         await addSubscription.mutateAsync({

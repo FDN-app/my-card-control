@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ChevronRight, Bell, Printer, History, Sparkles, Loader2, TrendingUp } from 'lucide-react';
+import { AlertCircle, ChevronRight, Bell, Printer, History, Sparkles, Loader2, TrendingUp, CreditCard, PlusCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '@/lib/store';
 import { formatCurrency } from '@/lib/data';
@@ -13,7 +13,7 @@ import { generateMonthlySummary, generateNextMonthPrediction } from '@/services/
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f97316'];
 
 export default function Dashboard() {
-  const { cards, expenses, alertThreshold, subscriptionAlertDays, getCardProjected, nextMonthTotal, totalBudget } = useApp();
+  const { cards, expenses, alertThreshold, subscriptionAlertDays, getCardProjected, nextMonthTotal, totalBudget, loadingData } = useApp();
   const { subscriptions } = useSubscriptions();
   const navigate = useNavigate();
   const [showHistory, setShowHistory] = useState(false);
@@ -139,7 +139,19 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {showHistory ? (
+      {!loadingData && cards.length === 0 && expenses.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 text-center surface-elevated rounded-3xl mt-8 border border-dashed border-primary/30 relative overflow-hidden animate-fade-in shadow-[0_0_50px_hsl(var(--primary)/0.1)]">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -z-10" />
+           <CreditCard size={64} className="text-primary mb-6 animate-pulse" />
+           <h2 className="text-3xl font-black mb-3">¡Bienvenido a CuotaCtrl!</h2>
+           <p className="text-muted-foreground max-w-lg mx-auto mb-8 text-lg">
+             Este es tu espacio personal para organizar tus finanzas. Para empezar a rastrear tus gastos y cuotas, primero necesitas registrar al menos una tarjeta o billetera virtual.
+           </p>
+           <Button onClick={() => navigate('/tarjetas')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 text-lg px-8 py-6 rounded-2xl shadow-lg shadow-primary/30">
+              <PlusCircle /> Agregar mi Primera Tarjeta
+           </Button>
+        </div>
+      ) : showHistory ? (
         <div className="surface-elevated rounded-2xl overflow-hidden animate-fade-in">
           <div className="p-6 border-b border-border">
             <h3 className="text-xl font-bold text-foreground">Gastos Finalizados</h3>

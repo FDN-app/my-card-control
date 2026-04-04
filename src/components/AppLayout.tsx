@@ -1,7 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard, CreditCard, PlusCircle, FileUp, Settings, TrendingDown, Bell
-} from 'lucide-react';
+import { LayoutDashboard, CreditCard, PlusCircle, FileUp, Settings, TrendingDown, Bell, LogOut } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -32,6 +31,7 @@ function SidebarItem({ icon: Icon, label, active, onClick }: {
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
@@ -74,14 +74,26 @@ export default function AppLayout() {
             active={isActive('/configuracion')}
             onClick={() => navigate('/configuracion')}
           />
-          <div className="mt-6 flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-secondary border border-border overflow-hidden">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full" />
+          <div className="mt-6 flex flex-col gap-3 px-2">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-secondary border border-border overflow-hidden shrink-0 flex items-center justify-center font-bold text-foreground">
+                {user?.email?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-foreground truncate" title={user?.email || 'Usuario'}>{user?.email || 'Usuario'}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Plan Pro</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-foreground">Tomas Cook</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Plan Premium</p>
-            </div>
+            
+            <button 
+              onClick={async () => {
+                await signOut();
+                navigate('/login');
+              }}
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-destructive transition-colors mt-2"
+            >
+              <LogOut size={14} /> Cerrar Sesión
+            </button>
           </div>
         </div>
       </aside>
@@ -107,6 +119,15 @@ export default function AppLayout() {
           className={`p-2 ${isActive('/configuracion') ? 'text-primary' : 'text-muted-foreground'}`}
         >
           <Settings size={22} />
+        </button>
+        <button
+          onClick={async () => {
+            await signOut();
+            navigate('/login');
+          }}
+          className="p-2 text-muted-foreground hover:text-destructive"
+        >
+          <LogOut size={22} />
         </button>
       </nav>
     </div>
