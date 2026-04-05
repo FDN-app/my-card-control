@@ -39,8 +39,16 @@ const generateInstallments = (exp: Expense) => {
      }
 
      let estado = 'Pendiente';
-     if (i < exp.current) estado = 'Pagada';
-     else if (i === exp.current) estado = 'Actual';
+     if (i < exp.current) {
+       estado = 'Pagada';
+     } else if (i === exp.current) {
+       const now = new Date();
+       if (d.getFullYear() > now.getFullYear() || (d.getFullYear() === now.getFullYear() && d.getMonth() > now.getMonth())) {
+         estado = 'Pendiente';
+       } else {
+         estado = 'Actual';
+       }
+     }
 
      arr.push({
        numero: i,
