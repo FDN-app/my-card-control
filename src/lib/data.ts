@@ -17,6 +17,8 @@ export interface Expense {
   date: string;
   category: string;
   installmentAmount: number;
+  periodicidad?: 'semanal' | 'quincenal' | 'mensual';
+  modificaciones_cuotas?: Record<number, { monto?: number; fecha?: string; nota?: string; eliminada?: boolean; pagada?: boolean }>;
 }
 
 export type AppView = 'dashboard' | 'cards' | 'card-detail' | 'new-expense' | 'import' | 'settings';

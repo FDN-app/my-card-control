@@ -23,6 +23,7 @@ export default function NewExpense() {
     interestRate: '',
     date: new Date().toISOString().slice(0, 10),
     category: 'Tecnología',
+    periodicidad: 'mensual' as 'semanal' | 'quincenal' | 'mensual',
   });
 
   const interestInfo = useMemo(() => {
@@ -51,6 +52,7 @@ export default function NewExpense() {
         current: 1,
         date: form.date,
         category: form.category,
+        periodicidad: form.periodicidad,
       });
       setSaved(true);
       setTimeout(() => navigate('/'), 1500);
@@ -144,7 +146,7 @@ export default function NewExpense() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label>Fecha primera cuota</Label>
             <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
@@ -157,6 +159,17 @@ export default function NewExpense() {
                 {CATEGORIES.map(c => (
                   <SelectItem key={c} value={c}>{c}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Periodicidad</Label>
+            <Select value={form.periodicidad} onValueChange={(v: any) => setForm(f => ({ ...f, periodicidad: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="semanal">Semanal</SelectItem>
+                <SelectItem value="quincenal">Quincenal</SelectItem>
+                <SelectItem value="mensual">Mensual</SelectItem>
               </SelectContent>
             </Select>
           </div>

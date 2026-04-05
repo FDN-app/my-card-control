@@ -79,7 +79,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         current: db.cuota_actual,
         date: db.fecha_primera_cuota,
         category: db.categoria,
-        installmentAmount: Number(db.monto_cuota) || 0
+        installmentAmount: Number(db.monto_cuota) || 0,
+        periodicidad: db.periodicidad || 'mensual',
+        modificaciones_cuotas: db.modificaciones_cuotas || {}
       })) as Expense[];
     },
     enabled: !!user,
@@ -148,6 +150,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fecha_primera_cuota: expense.date,
         categoria: expense.category,
         monto_cuota: expense.installmentAmount,
+        periodicidad: expense.periodicidad || 'mensual',
+        modificaciones_cuotas: expense.modificaciones_cuotas || {},
       });
       if (error) throw error;
     },
@@ -168,6 +172,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fecha_primera_cuota: expense.date,
         categoria: expense.category,
         monto_cuota: expense.installmentAmount,
+        periodicidad: expense.periodicidad || 'mensual',
+        modificaciones_cuotas: expense.modificaciones_cuotas || {},
       }).eq('id', expense.id);
       if (error) throw error;
     },
