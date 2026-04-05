@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 const generateInstallments = (exp: Expense) => {
   const arr = [];
   const start = new Date(exp.date);
+  if (isNaN(start.getTime())) start.setTime(Date.now());
   // normaliza al inicio del dia
   start.setHours(0, 0, 0, 0);
 
