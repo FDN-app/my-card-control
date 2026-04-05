@@ -91,3 +91,49 @@ Estructura exacta:
   if (!content) throw new Error("No data returned by OpenAI.");
   return JSON.parse(content);
 }
+
+export async function chatWithFinanceAssistant(contextData: any, userMessage: string, history: {role: 'user'|'assistant', content: string}[]) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  if (!apiKey) throw new Error("API Key de OpenAI no configurada.");
+
+  const prompt = `
+Eres un asistente financiero personal integrado en la aplicación Card Control.
+Tienes acceso al estado actual del usuario, incluyendo su salario mensual, ingresos registrados, gastos recientes, cuotas de tarjetas y suscripciones.
+
+Contexto numérico del usuario de este mes:
+${JSON.stringify(contextData, null, 2)}
+
+Instrucciones:
+- Responde en español directo y amigable.
+- Si el usuario pregunta "cuánto puedo gastar", cálculalo restando los gastos fijos del mes del salario.
+- Da consejos financieros basándote 100% en los números brindados en el contexto. No inventes gastos.
+- Sé conciso y claro. NO uses lenguaje Markdown enriquecido como tablas, usa viñetas simples o texto plano con emojis.
+- Si está gastando de más, diselo directamente pero con tacto.
+  `;
+
+  const messages = [
+    { role: "system", content: prompt },
+    ...history.map(m => ({ role: m.role, content: m.content })),
+    { role: "user", content: userMessage }
+  ];
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: messages,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Error al conectar con OpenAI");
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "No se pudo generar respuesta.";
+}

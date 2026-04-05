@@ -13,6 +13,7 @@ import CardDetail from "./pages/CardDetail";
 import NewExpense from "./pages/NewExpense";
 import ImportExpenses from "./pages/ImportExpenses";
 import Subscriptions from "./pages/Subscriptions";
+import Finanzas from "./pages/Finanzas";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -37,6 +38,7 @@ const App = () => (
                   <Route path="/gastos/nuevo" element={<NewExpense />} />
                   <Route path="/gastos/importar" element={<ImportExpenses />} />
                   <Route path="/suscripciones" element={<Subscriptions />} />
+                  <Route path="/finanzas" element={<Finanzas />} />
                   <Route path="/configuracion" element={<SettingsPage />} />
                 </Route>
               </Route>

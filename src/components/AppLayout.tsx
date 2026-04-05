@@ -1,10 +1,11 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, PlusCircle, FileUp, Settings, TrendingDown, Bell, LogOut } from 'lucide-react';
+import { LayoutDashboard, CreditCard, PlusCircle, FileUp, Settings, TrendingDown, Bell, LogOut, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CreditCard, label: 'Mis Tarjetas', path: '/tarjetas' },
+  { icon: Wallet, label: 'Mis Finanzas', path: '/finanzas' },
   { icon: PlusCircle, label: 'Nuevo Gasto', path: '/gastos/nuevo' },
   { icon: FileUp, label: 'Importar', path: '/gastos/importar' },
   { icon: Bell, label: 'Suscripciones', path: '/suscripciones' },
