@@ -15,7 +15,7 @@ const subscriptionSchema = z.object({
   tarjeta_id: z.string().min(1, "Selecciona una tarjeta"),
   fecha_proximo_cobro: z.string().min(1, "Selecciona la fecha"),
   periodicidad: z.enum(['Mensual', 'Anual']),
-  estado: z.enum(['Activa', 'Cancelada']),
+  estado: z.enum(['Activa', 'Pausada', 'Cancelada']),
   notas: z.string().optional().nullable(),
 });
 
@@ -179,6 +179,10 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" value="Activa" {...register('estado')} className="accent-primary w-4 h-4" />
                 <span className="text-sm font-medium text-foreground">Activa</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" value="Pausada" {...register('estado')} className="accent-primary w-4 h-4" />
+                <span className="text-sm font-medium text-foreground">Pausada</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" value="Cancelada" {...register('estado')} className="accent-primary w-4 h-4" />

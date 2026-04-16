@@ -38,7 +38,7 @@ export interface Subscription {
   monto: number;
   periodicidad: 'Mensual' | 'Anual';
   fecha_proximo_cobro: string;
-  estado: 'Activa' | 'Cancelada';
+  estado: 'Activa' | 'Pausada' | 'Cancelada';
   notas?: string | null;
   created_at?: string;
 }

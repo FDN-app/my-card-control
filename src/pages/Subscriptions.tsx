@@ -1,33 +1,46 @@
 import { useState, useMemo } from 'react';
-import { Bell, Plus, CreditCard as CardIcon, Loader2, Trash2 } from 'lucide-react';
+import { Bell, Plus, CreditCard as CardIcon, Loader2, Trash2, CheckCircle2, Play } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { formatCurrency, type Subscription } from '@/lib/data';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import SubscriptionDialog from '@/components/SubscriptionDialog';
+import PaymentOptionsModal from '@/components/PaymentOptionsModal';
+import ReactivateSubscriptionModal from '@/components/ReactivateSubscriptionModal';
 
 export default function Subscriptions() {
   const { cards } = useApp();
   const { subscriptions, isLoading, updateSubscription, deleteSubscription } = useSubscriptions();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSub, setEditingSub] = useState<Subscription | undefined>(undefined);
-  const [filter, setFilter] = useState<'Todas' | 'Activas' | 'Canceladas'>('Todas');
+  const [filter, setFilter] = useState<'Todas' | 'Activas' | 'Pausadas' | 'Canceladas'>('Todas');
+  
+  // Modales de gestión de estado
+  const [selectedSubForPayment, setSelectedSubForPayment] = useState<Subscription | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedSubForReactivation, setSelectedSubForReactivation] = useState<Subscription | null>(null);
+  const [isReactivateModalOpen, setIsReactivateModalOpen] = useState(false);
 
   const subMetrics = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     let monthlyTotal = 0;
+    
+    // Calcular el total mensual SIEMPRE sobre todas las activas, independientemente del filtro
+    subscriptions.forEach(s => {
+      if (s.estado === 'Activa' && s.periodicidad === 'Mensual') {
+        monthlyTotal += Number(s.monto) || 0;
+      }
+    });
+
     const items = subscriptions
       .filter(s => {
         if (filter === 'Activas') return s.estado === 'Activa';
+        if (filter === 'Pausadas') return s.estado === 'Pausada';
         if (filter === 'Canceladas') return s.estado === 'Cancelada';
         return true;
       })
       .map(s => {
-        if (s.estado === 'Activa' && s.periodicidad === 'Mensual') {
-          monthlyTotal += Number(s.monto) || 0;
-        }
-
         const billingDate = new Date(s.fecha_proximo_cobro + 'T00:00:00');
         const diffTime = billingDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -48,15 +61,14 @@ export default function Subscriptions() {
     setIsDialogOpen(true);
   };
 
-  const toggleStatus = async (sub: Subscription) => {
-    try {
-      await updateSubscription.mutateAsync({
-        ...sub,
-        estado: sub.estado === 'Activa' ? 'Cancelada' : 'Activa'
-      });
-    } catch (e) {
-      console.error(e);
-    }
+  const handlePayClick = (sub: Subscription) => {
+    setSelectedSubForPayment(sub);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleReactivateClick = (sub: Subscription) => {
+    setSelectedSubForReactivation(sub);
+    setIsReactivateModalOpen(true);
   };
 
   const handleDelete = async (sub: Subscription) => {
@@ -87,10 +99,16 @@ export default function Subscriptions() {
         </button>
       </header>
 
-      <div className="flex justify-start gap-2 border-b border-border pb-4">
-         <button onClick={() => setFilter('Todas')} className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === 'Todas' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}>Todas</button>
-         <button onClick={() => setFilter('Activas')} className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === 'Activas' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}>Activas</button>
-         <button onClick={() => setFilter('Canceladas')} className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === 'Canceladas' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}>Canceladas</button>
+      <div className="flex justify-start gap-2 border-b border-border pb-4 overflow-x-auto">
+         {(['Todas', 'Activas', 'Pausadas', 'Canceladas'] as const).map((f) => (
+           <button 
+             key={f}
+             onClick={() => setFilter(f)} 
+             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${filter === f ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+           >
+             {f}
+           </button>
+         ))}
       </div>
 
       <div className="space-y-4 relative min-h-[300px]">
@@ -101,9 +119,11 @@ export default function Subscriptions() {
         ) : subMetrics.items.length === 0 ? (
           <div className="surface-elevated p-10 rounded-2xl border border-dashed border-border flex flex-col items-center text-center opacity-70">
             <Bell size={48} className="text-muted-foreground mb-4 opacity-50" />
-            <h3 className="text-lg font-bold text-foreground">No tienes suscripciones</h3>
+            <h3 className="text-lg font-bold text-foreground">No hay suscripciones</h3>
             <p className="text-muted-foreground text-sm mt-1 max-w-md">
-              Agrega tus suscripciones como Netflix, Spotify o membresias para llevar un mejor control mensual.
+              {filter === 'Todas' 
+                ? 'Agrega tus suscripciones como Netflix, Spotify o membresias para llevar un mejor control mensual.'
+                : `No se encontraron suscripciones con el estado: ${filter}`}
             </p>
           </div>
         ) : (
@@ -114,30 +134,36 @@ export default function Subscriptions() {
             let badgeClass = "bg-secondary text-secondary-foreground border border-border";
             let badgeText = "";
             
-            if (sub.estado !== 'Activa') {
-              badgeClass = "bg-muted text-muted-foreground border border-border";
-              badgeText = "Cancelada";
-            } else if (sub.diffDays < 0) {
-               badgeClass = "bg-secondary text-secondary-foreground border border-border";
-               badgeText = "Cobrado recientemente";
-            } else if (sub.diffDays === 0) {
-              badgeClass = "bg-destructive/20 text-destructive border border-destructive/30";
-              badgeText = "Se cobra HOY";
-            } else if (sub.diffDays <= 3) {
+            if (sub.estado === 'Cancelada') {
               badgeClass = "bg-destructive/10 text-destructive border border-destructive/20";
-              badgeText = `Faltan ${sub.diffDays} días`;
-            } else if (sub.diffDays <= 7) {
-              badgeClass = "bg-warning/20 text-warning border border-warning/30";
-              badgeText = `Faltan ${sub.diffDays} días`;
+              badgeText = "❌ Cancelada";
+            } else if (sub.estado === 'Pausada') {
+              badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
+              badgeText = "⏸ Pausada";
             } else {
-              badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
-              badgeText = `Faltan ${sub.diffDays} días`;
+              // Activa
+              if (sub.diffDays < 0) {
+                 badgeClass = "bg-secondary text-secondary-foreground border border-border";
+                 badgeText = "Cobrado recientemente";
+              } else if (sub.diffDays === 0) {
+                badgeClass = "bg-destructive/20 text-destructive border border-destructive/30";
+                badgeText = "Se cobra HOY";
+              } else if (sub.diffDays <= 3) {
+                badgeClass = "bg-destructive/10 text-destructive border border-destructive/20";
+                badgeText = `Faltan ${sub.diffDays} días`;
+              } else if (sub.diffDays <= 7) {
+                badgeClass = "bg-warning/20 text-warning border border-warning/30";
+                badgeText = `Faltan ${sub.diffDays} días`;
+              } else {
+                badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+                badgeText = `Faltan ${sub.diffDays} días`;
+              }
             }
 
             return (
-              <div key={sub.id} className={`surface-elevated p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${sub.estado !== 'Activa' ? 'opacity-60 grayscale' : ''}`}>
+              <div key={sub.id} className={`surface-elevated p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${sub.estado !== 'Activa' ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-xl shadow-inner border border-border shrink-0">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner border border-border shrink-0 ${sub.estado === 'Activa' ? 'bg-secondary' : 'bg-muted opacity-50'}`}>
                     {sub.nombre.charAt(0).toUpperCase()}
                   </div>
                   <div className="overflow-hidden">
@@ -150,7 +176,7 @@ export default function Subscriptions() {
                     <div className="text-muted-foreground text-sm flex items-center gap-2 mt-1 flex-wrap">
                       <span className="flex items-center gap-1 shrink-0"><CardIcon size={14} /> {card?.bank || 'Tarjeta Borrada'}</span>
                       <span className="opacity-50 hidden sm:inline">•</span>
-                      <span className="shrink-0">Renueva {new Date(sub.fecha_proximo_cobro + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span>
+                      <span className="shrink-0">Próximo: {new Date(sub.fecha_proximo_cobro + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span>
                       <span className="opacity-50 hidden sm:inline">•</span>
                       <span className="shrink-0">{sub.periodicidad}</span>
                     </div>
@@ -166,19 +192,33 @@ export default function Subscriptions() {
                   </div>
                   
                   <div className="flex gap-2">
-                     <button
-                        onClick={() => toggleStatus(sub)}
-                        disabled={updateSubscription.isPending}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold interactive-press border transition-colors ${sub.estado === 'Activa' ? 'bg-secondary text-foreground hover:bg-destructive/20 hover:text-destructive hover:border-destructive' : 'bg-primary/20 text-primary border-primary/30'} disabled:opacity-50`}
+                    {sub.estado === 'Activa' && (
+                      <button
+                        onClick={() => handlePayClick(sub)}
+                        className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold interactive-press flex items-center gap-1"
                       >
-                        {sub.estado === 'Activa' ? 'Cancelar' : 'Activar'}
+                        <CheckCircle2 size={16} />
+                        Pagué
                       </button>
+                    )}
+
+                    {sub.estado === 'Pausada' && (
+                      <button
+                        onClick={() => handleReactivateClick(sub)}
+                        className="bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 px-3 py-1.5 rounded-lg text-xs font-bold interactive-press flex items-center gap-1"
+                      >
+                        <Play size={16} fill="currentColor" />
+                        Reactivar
+                      </button>
+                    )}
+
                     <button
                       onClick={() => handleEdit(sub)}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold interactive-press bg-secondary text-foreground hover:bg-secondary/80 border border-border"
                     >
                       Editar
                     </button>
+                    
                     <button
                       onClick={() => handleDelete(sub)}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold interactive-press bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20"
@@ -198,6 +238,19 @@ export default function Subscriptions() {
         onOpenChange={setIsDialogOpen}
         subscriptionToEdit={editingSub}
       />
+
+      <PaymentOptionsModal
+        subscription={selectedSubForPayment}
+        open={isPaymentModalOpen}
+        onOpenChange={setIsPaymentModalOpen}
+      />
+
+      <ReactivateSubscriptionModal
+        subscription={selectedSubForReactivation}
+        open={isReactivateModalOpen}
+        onOpenChange={setIsReactivateModalOpen}
+      />
     </div>
   );
 }
+
