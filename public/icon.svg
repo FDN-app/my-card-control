@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#030d14"/>
+  <rect x="1" y="1" width="510" height="510" rx="95" fill="none" stroke="#00ff88" stroke-width="2" opacity="0.6"/>
+  <!-- Trending down arrow (app icon) -->
+  <polyline points="96,160 200,280 280,200 416,340" fill="none" stroke="#00ff88" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="320,340 416,340 416,244" fill="none" stroke="#00ff88" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Glow effect overlay -->
+  <polyline points="96,160 200,280 280,200 416,340" fill="none" stroke="#00ff88" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" filter="url(#glow)"/>
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+</svg>

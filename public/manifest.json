@@ -1,0 +1,43 @@
+{
+  "name": "CuotaCtrl",
+  "short_name": "CuotaCtrl",
+  "description": "Controlá tus cuotas y finanzas personales",
+  "theme_color": "#00ff88",
+  "background_color": "#030d14",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "lang": "es-AR",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Nuevo Gasto",
+      "short_name": "Nuevo",
+      "description": "Registrar un nuevo gasto",
+      "url": "/gastos/nuevo",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Inicio",
+      "description": "Ver resumen financiero",
+      "url": "/",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

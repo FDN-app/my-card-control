@@ -145,10 +145,10 @@ export default function Dashboard() {
            <CreditCard size={64} className="text-primary mb-6 animate-pulse" />
            <h2 className="text-3xl font-black mb-3">¡Bienvenido a CuotaCtrl!</h2>
            <p className="text-muted-foreground max-w-lg mx-auto mb-8 text-lg">
-             Este es tu espacio personal para organizar tus finanzas. Para empezar a rastrear tus gastos y cuotas, primero necesitas registrar al menos una tarjeta o billetera virtual.
+             Este es tu espacio personal para organizar tus finanzas. Para empezar a rastrear tus gastos y cuotas, primero necesitas registrar al menos un medio de pago.
            </p>
            <Button onClick={() => navigate('/tarjetas')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 text-lg px-8 py-6 rounded-2xl shadow-lg shadow-primary/30">
-              <PlusCircle /> Agregar mi Primera Tarjeta
+              <PlusCircle /> Agregar mi Primer Medio de Pago
            </Button>
         </div>
       ) : showHistory ? (
@@ -226,7 +226,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Cards + Category chart */}
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-xl font-bold text-foreground">Tus Tarjetas</h2>
+          <h2 className="text-xl font-bold text-foreground">Tus Medios de Pago</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {metrics.cardMetrics.map(cm => (
               <CreditCardVisual
@@ -400,7 +400,7 @@ export default function Dashboard() {
                       <div>
                         <p className="text-foreground font-medium text-sm">{sub.nombre}</p>
                         <p className="text-muted-foreground text-xs flex items-center gap-1">
-                          {card?.bank || 'Tarjeta Borrada'} • Falta{sub.diffDays !== 1 ? 'n' : ''} {sub.diffDays === 0 ? 'hoy' : `${sub.diffDays} d`}
+                          {sub.tarjeta_id ? (card?.bank || card?.name || 'Medio borrado') : 'Sin medio de pago'} • Falta{sub.diffDays !== 1 ? 'n' : ''} {sub.diffDays === 0 ? 'hoy' : `${sub.diffDays} d`}
                         </p>
                       </div>
                     </div>

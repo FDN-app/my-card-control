@@ -9,7 +9,7 @@ import ReactivateSubscriptionModal from '@/components/ReactivateSubscriptionModa
 
 export default function Subscriptions() {
   const { cards } = useApp();
-  const { subscriptions, isLoading, updateSubscription, deleteSubscription } = useSubscriptions();
+  const { subscriptions, isLoading, error, updateSubscription, deleteSubscription } = useSubscriptions();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSub, setEditingSub] = useState<Subscription | undefined>(undefined);
   const [filter, setFilter] = useState<'Todas' | 'Activas' | 'Pausadas' | 'Canceladas'>('Todas');
@@ -20,16 +20,22 @@ export default function Subscriptions() {
   const [selectedSubForReactivation, setSelectedSubForReactivation] = useState<Subscription | null>(null);
   const [isReactivateModalOpen, setIsReactivateModalOpen] = useState(false);
 
+  const toMonthlyFactor = (periodicidad: string) => {
+    if (periodicidad === 'Semanal') return 365 / 12 / 7;
+    if (periodicidad === 'Quincenal') return 2;
+    if (periodicidad === 'Anual') return 1 / 12;
+    return 1; // Mensual
+  };
+
   const subMetrics = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     let monthlyTotal = 0;
-    
-    // Calcular el total mensual SIEMPRE sobre todas las activas, independientemente del filtro
+
     subscriptions.forEach(s => {
-      if (s.estado === 'Activa' && s.periodicidad === 'Mensual') {
-        monthlyTotal += Number(s.monto) || 0;
+      if (s.estado === 'Activa') {
+        monthlyTotal += (Number(s.monto) || 0) * toMonthlyFactor(s.periodicidad);
       }
     });
 
@@ -116,6 +122,14 @@ export default function Subscriptions() {
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="animate-spin text-primary" size={40} />
           </div>
+        ) : error ? (
+          <div className="surface-elevated p-10 rounded-2xl border border-destructive/30 flex flex-col items-center text-center">
+            <Bell size={48} className="text-destructive mb-4 opacity-50" />
+            <h3 className="text-lg font-bold text-foreground">Error al cargar suscripciones</h3>
+            <p className="text-muted-foreground text-sm mt-1 max-w-md">
+              {(error as Error)?.message || 'Ocurrió un error. Revisá la configuración de la base de datos.'}
+            </p>
+          </div>
         ) : subMetrics.items.length === 0 ? (
           <div className="surface-elevated p-10 rounded-2xl border border-dashed border-border flex flex-col items-center text-center opacity-70">
             <Bell size={48} className="text-muted-foreground mb-4 opacity-50" />
@@ -131,9 +145,10 @@ export default function Subscriptions() {
             const card = cards.find(c => c.id === sub.tarjeta_id);
             
             // Badge color logic
+            const alertThresholdDays = sub.dias_alerta ?? 3;
             let badgeClass = "bg-secondary text-secondary-foreground border border-border";
             let badgeText = "";
-            
+
             if (sub.estado === 'Cancelada') {
               badgeClass = "bg-destructive/10 text-destructive border border-destructive/20";
               badgeText = "❌ Cancelada";
@@ -143,12 +158,12 @@ export default function Subscriptions() {
             } else {
               // Activa
               if (sub.diffDays < 0) {
-                 badgeClass = "bg-secondary text-secondary-foreground border border-border";
-                 badgeText = "Cobrado recientemente";
+                badgeClass = "bg-secondary text-secondary-foreground border border-border";
+                badgeText = "Cobrado recientemente";
               } else if (sub.diffDays === 0) {
                 badgeClass = "bg-destructive/20 text-destructive border border-destructive/30";
                 badgeText = "Se cobra HOY";
-              } else if (sub.diffDays <= 3) {
+              } else if (sub.diffDays <= alertThresholdDays) {
                 badgeClass = "bg-destructive/10 text-destructive border border-destructive/20";
                 badgeText = `Faltan ${sub.diffDays} días`;
               } else if (sub.diffDays <= 7) {
@@ -174,7 +189,7 @@ export default function Subscriptions() {
                       </span>
                     </h3>
                     <div className="text-muted-foreground text-sm flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="flex items-center gap-1 shrink-0"><CardIcon size={14} /> {card?.bank || 'Tarjeta Borrada'}</span>
+                      <span className="flex items-center gap-1 shrink-0"><CardIcon size={14} /> {sub.tarjeta_id ? (card?.bank || card?.name || 'Medio borrado') : 'Sin medio de pago'}</span>
                       <span className="opacity-50 hidden sm:inline">•</span>
                       <span className="shrink-0">Próximo: {new Date(sub.fecha_proximo_cobro + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span>
                       <span className="opacity-50 hidden sm:inline">•</span>
