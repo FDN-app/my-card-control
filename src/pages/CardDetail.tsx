@@ -1,389 +1,489 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  ArrowLeft, Plus, Pencil, Trash2,
+  ChevronDown, ChevronUp, CheckCircle2, Circle, PartyPopper,
+} from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '@/lib/store';
 import { formatCurrency, type Expense, CATEGORIES } from '@/lib/data';
 import { CreditCardVisual } from '@/components/CreditCardVisual';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog, DialogContent, DialogHeader,
+  DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
-const generateInstallments = (exp: Expense) => {
-  const arr = [];
+/* ── helpers ─────────────────────────────────────────────── */
+
+type Cuota = {
+  numero: number;
+  fecha: Date;
+  monto: number;
+  eliminada: boolean;
+  nota: string;
+  estado: 'Pagada' | 'Actual' | 'Pendiente';
+};
+
+const generateInstallments = (exp: Expense): Cuota[] => {
+  const arr: Cuota[] = [];
   const start = new Date(exp.date);
   if (isNaN(start.getTime())) start.setTime(Date.now());
-  // normaliza al inicio del dia
   start.setHours(0, 0, 0, 0);
 
   for (let i = 1; i <= exp.installments; i++) {
-     let d = new Date(start);
-     if (exp.periodicidad === 'semanal') {
-       d.setDate(d.getDate() + (i - 1) * 7);
-     } else if (exp.periodicidad === 'quincenal') {
-       d.setDate(d.getDate() + (i - 1) * 15);
-     } else {
-       d.setMonth(d.getMonth() + (i - 1));
-     }
+    let d = new Date(start);
+    if (exp.periodicidad === 'semanal')   d.setDate(d.getDate() + (i - 1) * 7);
+    else if (exp.periodicidad === 'quincenal') d.setDate(d.getDate() + (i - 1) * 15);
+    else d.setMonth(d.getMonth() + (i - 1));
 
-     let baseMonto = exp.installmentAmount || Math.round(exp.total / exp.installments);
-     let eliminada = false;
-     let nota = '';
+    let baseMonto = exp.installmentAmount || Math.round(exp.total / exp.installments);
+    let eliminada = false;
+    let nota = '';
 
-     if (exp.modificaciones_cuotas?.[i]) {
-       const mod = exp.modificaciones_cuotas[i];
-       if (mod.monto !== undefined) baseMonto = mod.monto;
-       if (mod.fecha) d = new Date(mod.fecha);
-       if (mod.nota) nota = mod.nota;
-       if (mod.eliminada) eliminada = true;
-     }
+    const mod = exp.modificaciones_cuotas?.[i];
+    if (mod) {
+      if (mod.monto !== undefined) baseMonto = mod.monto;
+      if (mod.fecha) d = new Date(mod.fecha);
+      if (mod.nota)  nota = mod.nota;
+      if (mod.eliminada) eliminada = true;
+    }
 
-     let estado = 'Pendiente';
-     if (i < exp.current) {
-       estado = 'Pagada';
-     } else if (i === exp.current) {
-       const now = new Date();
-       if (d.getFullYear() > now.getFullYear() || (d.getFullYear() === now.getFullYear() && d.getMonth() > now.getMonth())) {
-         estado = 'Pendiente';
-       } else {
-         estado = 'Actual';
-       }
-     }
+    // Estado: pagada explícitamente en mods, o ya avanzado por current, o actual/pendiente
+    let estado: Cuota['estado'] = 'Pendiente';
+    if (mod?.pagada || i < exp.current) {
+      estado = 'Pagada';
+    } else if (i === exp.current) {
+      const now = new Date();
+      estado =
+        d.getFullYear() > now.getFullYear() ||
+        (d.getFullYear() === now.getFullYear() && d.getMonth() > now.getMonth())
+          ? 'Pendiente'
+          : 'Actual';
+    }
 
-     arr.push({
-       numero: i,
-       fecha: d,
-       monto: baseMonto,
-       eliminada,
-       nota,
-       estado
-     });
+    arr.push({ numero: i, fecha: d, monto: baseMonto, eliminada, nota, estado });
   }
-  return arr.filter(c => !c.eliminada); 
+
+  return arr.filter(c => !c.eliminada);
 };
 
-export default function CardDetail() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { cards, expenses, deleteExpense, updateExpense, getCardExpenses } = useApp();
-  const { toast } = useToast();
-  
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [expandedExpense, setExpandedExpense] = useState<string | number | null>(null);
-  
-  // Installment Editing
-  const [editingInstallment, setEditingInstallment] = useState<{ exp: Expense, num: number, monto: number, fecha: string, nota: string } | null>(null);
-  
-  const [loadingAction, setLoadingAction] = useState(false);
+/* ── component ───────────────────────────────────────────── */
 
-  const card = cards.find(c => c.id === id);
+export default function CardDetail() {
+  const { id }      = useParams<{ id: string }>();
+  const navigate    = useNavigate();
+  const { cards, expenses, deleteExpense, updateExpense, getCardExpenses } = useApp();
+  const { toast }   = useToast();
+
+  const [editingExpense,     setEditingExpense]     = useState<Expense | null>(null);
+  const [expandedExpense,    setExpandedExpense]     = useState<string | number | null>(null);
+  const [editingInstallment, setEditingInstallment] = useState<{
+    exp: Expense; num: number; monto: number; fecha: string; nota: string;
+  } | null>(null);
+  const [loadingAction,      setLoadingAction]      = useState(false);
+  // id del gasto cuyas cuotas acaban de quedar todas pagas → muestra dialog
+  const [completedExpenseId, setCompletedExpenseId] = useState<string | number | null>(null);
+
+  const card         = cards.find(c => c.id === id);
   const cardExpenses = useMemo(() => getCardExpenses(id || ''), [getCardExpenses, id]);
 
-  const projected = useMemo(() => {
-    return cardExpenses.reduce((acc, exp) => {
-      const cuotas = generateInstallments(exp);
+  const projected = useMemo(() =>
+    cardExpenses.reduce((acc, exp) => {
+      const cuotas    = generateInstallments(exp);
       const remaining = cuotas.filter(c => c.numero >= exp.current);
       return acc + (remaining.length > 0 ? remaining[0].monto : 0);
-    }, 0);
-  }, [cardExpenses]);
+    }, 0),
+  [cardExpenses]);
 
   const projectionData = useMemo(() => {
     const data = Array.from({ length: 6 }).map((_, i) => {
-       const d = new Date();
-       d.setMonth(d.getMonth() + i);
-       return { 
-         name: d.toLocaleString('es-AR', { month: 'short' }).toUpperCase(), 
-         year: d.getFullYear(), 
-         month: d.getMonth(),
-         total: 0 
-       };
+      const d = new Date();
+      d.setMonth(d.getMonth() + i);
+      return { name: d.toLocaleString('es-AR', { month: 'short' }).toUpperCase(), year: d.getFullYear(), month: d.getMonth(), total: 0 };
     });
-
     cardExpenses.forEach(exp => {
-       const cuotas = generateInstallments(exp).filter(c => c.numero >= exp.current);
-       cuotas.forEach(cuota => {
-          const cy = cuota.fecha.getFullYear();
-          const cm = cuota.fecha.getMonth();
-          const target = data.find(d => d.year === cy && d.month === cm);
-          if (target) target.total += cuota.monto;
-       });
+      generateInstallments(exp)
+        .filter(c => c.numero >= exp.current)
+        .forEach(c => {
+          const target = data.find(d => d.year === c.fecha.getFullYear() && d.month === c.fecha.getMonth());
+          if (target) target.total += c.monto;
+        });
     });
     return data;
   }, [cardExpenses]);
 
   if (!card) return <div className="text-foreground p-8">Tarjeta no encontrada.</div>;
 
-  const handleEditCuota = (exp: Expense, cuota: any) => {
-    setEditingInstallment({
-      exp,
-      num: cuota.numero,
-      monto: cuota.monto,
-      fecha: cuota.fecha.toISOString().slice(0, 10),
-      nota: cuota.nota || ''
-    });
+  /* ── cuota handlers ──────────────────────────────────────── */
+
+  const handleEditCuota = (exp: Expense, c: Cuota) => {
+    setEditingInstallment({ exp, num: c.numero, monto: c.monto, fecha: c.fecha.toISOString().slice(0, 10), nota: c.nota || '' });
   };
 
   const handleSaveCuota = async () => {
     if (!editingInstallment) return;
     setLoadingAction(true);
     const { exp, num, monto, fecha, nota } = editingInstallment;
-    
     const mods = { ...(exp.modificaciones_cuotas || {}) };
     mods[num] = { ...(mods[num] || {}), monto, fecha, nota };
-    
     try {
       await updateExpense({ ...exp, modificaciones_cuotas: mods });
       setEditingInstallment(null);
-      toast({ title: 'Cuota actualizada exitosamente' });
-    } catch (e) {
+      toast({ title: 'Cuota actualizada' });
+    } catch {
       toast({ title: 'Error al actualizar cuota', variant: 'destructive' });
     } finally {
       setLoadingAction(false);
     }
   };
 
-  const handleDeleteCuota = async (exp: Expense, num: number) => {
-    if (!confirm('¿Seguro que deseas eliminar esta cuota?')) return;
-    
+  const handleMarkPaid = async (exp: Expense, cuotaNum: number) => {
+    setLoadingAction(true);
     const mods = { ...(exp.modificaciones_cuotas || {}) };
-    mods[num] = { ...(mods[num] || {}), eliminada: true };
-    
-    let newCurrent = exp.current;
-    if (num === exp.current) {
-       // Buscar la proxima cuota que no esté eliminada
-       let next = num + 1;
-       while (next <= exp.installments && mods[next]?.eliminada) {
-         next++;
-       }
-       newCurrent = next;
+    mods[cuotaNum] = { ...(mods[cuotaNum] || {}), pagada: true };
+
+    // Recalcular current: primer índice que no esté pagado ni eliminado
+    let newCurrent = exp.installments + 1;
+    for (let i = 1; i <= exp.installments; i++) {
+      if (mods[i]?.eliminada)            continue;
+      if (i < exp.current)               continue; // ya pagada por el puntero
+      if (mods[i]?.pagada)               continue; // pagada explícitamente
+      newCurrent = i;
+      break;
     }
-    
+
     try {
       await updateExpense({ ...exp, modificaciones_cuotas: mods, current: newCurrent });
-      toast({ title: 'Cuota eliminada exitosamente' });
-    } catch (e) {
-      toast({ title: 'Error al eliminar', variant: 'destructive' });
+      toast({ title: '✅ Cuota marcada como pagada' });
+
+      if (newCurrent > exp.installments) {
+        // Todas las cuotas están pagas
+        setCompletedExpenseId(exp.id);
+      }
+    } catch {
+      toast({ title: 'Error al marcar cuota', variant: 'destructive' });
+    } finally {
+      setLoadingAction(false);
     }
   };
 
+  const handleDeleteExpense = async (expId: string | number) => {
+    setLoadingAction(true);
+    try {
+      await deleteExpense(expId);
+      setCompletedExpenseId(null);
+      toast({ title: 'Gasto eliminado' });
+    } catch {
+      toast({ title: 'Error al eliminar', variant: 'destructive' });
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  /* ── render ──────────────────────────────────────────────── */
+
   return (
     <div className="space-y-8 animate-slide-in-right">
-      <button onClick={() => navigate('/tarjetas')} className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm interactive-press">
-        <ArrowLeft size={16} /> Volver a Tarjetas
+      <button
+        onClick={() => navigate('/tarjetas')}
+        className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm interactive-press"
+      >
+        <ArrowLeft size={16} /> Medios de Pago
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* ── Left column ──────────────────────────────────── */}
         <div className="lg:col-span-1 space-y-6">
           <CreditCardVisual card={card} projected={projected} />
           <div className="surface-elevated p-6 rounded-2xl space-y-4">
             <h4 className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Métricas</h4>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">Presupuesto</span>
-              <span className="text-foreground font-medium">{formatCurrency(card.budget)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">Disponible</span>
-              <span className={`font-medium ${card.budget - projected < 0 ? 'text-destructive' : 'text-success'}`}>
-                {formatCurrency(card.budget - projected)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">Gastos activos</span>
-              <span className="text-foreground font-medium">{cardExpenses.length}</span>
-            </div>
+            {[
+              { label: 'Presupuesto',     value: formatCurrency(card.budget), color: '' },
+              { label: 'Disponible',      value: formatCurrency(card.budget - projected), color: card.budget - projected < 0 ? 'text-destructive' : 'text-success' },
+              { label: 'Gastos activos',  value: String(cardExpenses.length), color: '' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="flex justify-between">
+                <span className="text-muted-foreground text-sm">{label}</span>
+                <span className={`font-medium ${color || 'text-foreground'}`}>{value}</span>
+              </div>
+            ))}
           </div>
           <Button className="w-full gap-2" onClick={() => navigate('/gastos/nuevo')}>
             <Plus size={16} /> Agregar Gasto
           </Button>
         </div>
 
+        {/* ── Right column ─────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
           {/* Projection chart */}
           <div className="surface-elevated rounded-2xl p-6">
-            <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto] mb-6">Proyección de Deuda (6 meses)</h3>
+            <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto] mb-6">
+              Proyección de Deuda (6 meses)
+            </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={projectionData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 14%)" vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
                   <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(v: number) => formatCurrency(v)}
                     cursor={{ fill: 'hsl(217 33% 14%)' }}
                     contentStyle={{ backgroundColor: 'hsl(222 47% 7%)', border: '1px solid hsl(217 33% 14%)', borderRadius: '8px' }}
                   />
-                  <Bar dataKey="total" fill="hsl(221 83% 53%)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="total" fill="hsl(153 100% 40%)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Expenses table */}
+          {/* Expenses list */}
           <div className="surface-elevated rounded-2xl overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-secondary text-muted-foreground text-[10px] uppercase tracking-widest">
-                  <th className="px-6 py-4 font-semibold">Gasto</th>
-                  <th className="px-6 py-4 font-semibold text-right">Vr. Cuota</th>
-                  <th className="px-6 py-4 font-semibold text-right">Interés</th>
-                  <th className="px-6 py-4 font-semibold text-center">Progreso</th>
-                  <th className="px-6 py-4 font-semibold text-right">Total Orig.</th>
-                  <th className="px-6 py-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {cardExpenses.map(exp => {
-                  const cuotas = generateInstallments(exp);
-                  const pagadas = cuotas.filter(c => c.numero < exp.current);
-                  const pendientes = cuotas.filter(c => c.numero >= exp.current);
-                  const totalPagado = pagadas.reduce((a,c) => a + c.monto, 0);
-                  const totalPendiente = pendientes.reduce((a,c) => a + c.monto, 0);
-                  
-                  const isExpanded = expandedExpense === exp.id;
-                  
-                  return (
-                    <React.Fragment key={exp.id}>
-                      <tr className="hover:bg-secondary/20 transition-colors group">
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <p className="text-foreground font-medium text-sm">{exp.desc}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-muted-foreground text-xs">{exp.category}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded border 
-                                ${exp.periodicidad === 'semanal' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 
-                                  exp.periodicidad === 'quincenal' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : 
-                                  'bg-blue-500/10 text-blue-500 border-blue-500/20'}`}>
-                                {exp.periodicidad ? exp.periodicidad.charAt(0).toUpperCase() + exp.periodicidad.slice(1) : 'Mensual'}
-                              </span>
-                            </div>
+            {/* Desktop header */}
+            <div className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-6 py-4 bg-secondary text-muted-foreground text-[10px] uppercase tracking-widest font-semibold">
+              <span>Gasto</span>
+              <span className="text-right">Vr. Cuota</span>
+              <span className="text-right">Interés</span>
+              <span className="text-center">Progreso</span>
+              <span className="text-right">Total Orig.</span>
+              <span className="text-right">Acciones</span>
+            </div>
+
+            <div className="divide-y divide-border">
+              {cardExpenses.map(exp => {
+                const cuotas     = generateInstallments(exp);
+                const pagadas    = cuotas.filter(c => c.estado === 'Pagada');
+                const pendientes = cuotas.filter(c => c.estado !== 'Pagada');
+                const totalPagado    = pagadas.reduce((a, c) => a + c.monto, 0);
+                const totalPendiente = pendientes.reduce((a, c) => a + c.monto, 0);
+                const isExpanded = expandedExpense === exp.id;
+
+                return (
+                  <React.Fragment key={exp.id}>
+                    {/* Expense row — responsive: stack on mobile, grid on desktop */}
+                    <div className="px-4 md:px-6 py-4 hover:bg-secondary/20 transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        {/* Description + meta */}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-foreground font-medium text-sm truncate">{exp.desc}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className="text-muted-foreground text-xs">{exp.category}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded border
+                              ${exp.periodicidad === 'semanal' ? 'bg-green-500/10 text-green-500 border-green-500/20' :
+                                exp.periodicidad === 'quincenal' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                                'bg-blue-500/10 text-blue-500 border-blue-500/20'}`}>
+                              {(exp.periodicidad ?? 'mensual').charAt(0).toUpperCase() + (exp.periodicidad ?? 'mensual').slice(1)}
+                            </span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <p className="text-foreground font-bold text-sm tracking-display">{formatCurrency(pendientes.length > 0 ? pendientes[0].monto : (exp.installmentAmount || Math.round(exp.total / exp.installments)))}</p>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <p className="text-warning font-medium text-xs">
-                            {((exp.installmentAmount * exp.installments) - exp.total) > 0 ? 
-                              `+${formatCurrency((exp.installmentAmount * exp.installments) - exp.total)}` : 
-                              '$0'}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">{pendientes.length} rest ({exp.current}/{exp.installments})</span>
-                            <div className="w-24 bg-secondary h-1 rounded-full overflow-hidden">
+                          {/* Mobile-only stats */}
+                          <div className="flex items-center gap-3 mt-2 md:hidden">
+                            <span className="text-foreground font-bold text-sm">
+                              {formatCurrency(pendientes.length > 0 ? pendientes[0].monto : exp.installmentAmount || Math.round(exp.total / exp.installments))}
+                            </span>
+                            <span className="text-muted-foreground text-xs">
+                              {exp.current}/{exp.installments} cuotas
+                            </span>
+                            <div className="flex-1 bg-secondary h-1 rounded-full overflow-hidden">
                               <div className="bg-primary h-full rounded-full" style={{ width: `${(pagadas.length / (cuotas.length || 1)) * 100}%` }} />
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <p className="text-muted-foreground font-bold text-xs">{formatCurrency(exp.total)}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2 justify-end opacity-50 group-hover:opacity-100 transition-opacity">
-                            {exp.installments > 1 && (
-                               <button onClick={() => setExpandedExpense(isExpanded ? null : exp.id)} className="text-muted-foreground hover:text-foreground transition-colors p-1" title="Ver Cuotas">
-                                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                               </button>
-                            )}
-                            <button onClick={() => setEditingExpense({...exp})} className="text-muted-foreground hover:text-primary transition-colors p-1">
-                              <Pencil size={16} />
-                            </button>
-                            <button onClick={async () => {
-                              setLoadingAction(true);
-                              try {
-                                await deleteExpense(exp.id);
-                              } catch (e) {
-                                toast({ title: 'Error', description: 'No se pudo eliminar el gasto', variant: 'destructive' });
-                              } finally {
-                                setLoadingAction(false);
-                              }
-                            }} disabled={loadingAction} className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 p-1">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      
-                      {/* Expanded Cuotas Row */}
-                      {isExpanded && exp.installments > 1 && (
-                        <tr className="bg-secondary/30">
-                          <td colSpan={6} className="px-6 py-4">
-                            <div className="bg-card/50 border border-border rounded-xl p-4 animate-fade-in">
-                               <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Desglose de Cuotas</h5>
-                               <div className="overflow-x-auto">
-                                 <table className="w-full text-left text-sm mb-4">
-                                   <thead>
-                                     <tr className="text-muted-foreground border-b border-border/50">
-                                       <th className="pb-2 font-medium">Cuota</th>
-                                       <th className="pb-2 font-medium">Vencimiento</th>
-                                       <th className="pb-2 font-medium text-right">Monto</th>
-                                       <th className="pb-2 font-medium text-right">Estado</th>
-                                       <th className="pb-2"></th>
-                                     </tr>
-                                   </thead>
-                                   <tbody className="divide-y divide-border/20">
-                                     {cuotas.map(c => (
-                                        <tr key={c.numero} className="group/cuota">
-                                          <td className="py-2.5">
-                                            <span className="text-foreground">{c.numero}</span> <span className="text-muted-foreground text-xs">/ {exp.installments}</span>
-                                          </td>
-                                          <td className="py-2.5 text-muted-foreground">
-                                            {c.fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                                            {c.nota && <span className="block text-[10px] text-accent mt-0.5">{c.nota}</span>}
-                                          </td>
-                                          <td className="py-2.5 text-right font-medium text-foreground">
-                                            {formatCurrency(c.monto)}
-                                          </td>
-                                          <td className="py-2.5 text-right">
-                                            <span className={`text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1.5
-                                              ${c.estado === 'Pagada' ? 'bg-success/10 text-success' : 
-                                                c.estado === 'Actual' ? 'bg-primary/20 text-primary border border-primary/30 font-bold' : 
-                                                'bg-muted/50 text-muted-foreground'}`}>
-                                              {c.estado === 'Pagada' && '✅ '}
-                                              {c.estado === 'Actual' && '🔄 '}
-                                              {c.estado === 'Pendiente' && '⏳ '}
-                                              {c.estado}
-                                            </span>
-                                          </td>
-                                          <td className="py-2.5 text-right opacity-0 group-hover/cuota:opacity-100 transition-opacity w-16">
-                                            <div className="flex justify-end gap-2">
-                                              <button onClick={() => handleEditCuota(exp, c)} className="text-muted-foreground hover:text-primary transition-colors"><Pencil size={14}/></button>
-                                              <button onClick={() => handleDeleteCuota(exp, c.numero)} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={14}/></button>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                     ))}
-                                   </tbody>
-                                 </table>
-                               </div>
-                               
-                               <div className="flex items-center gap-6 text-sm border-t border-border pt-3">
-                                 <div>
-                                   <span className="text-muted-foreground">Total Pagado: </span>
-                                   <span className="text-foreground font-bold">{formatCurrency(totalPagado)}</span>
-                                 </div>
-                                 <div>
-                                   <span className="text-muted-foreground">Total Pendiente: </span>
-                                   <span className="text-foreground font-bold">{formatCurrency(totalPendiente)}</span>
-                                 </div>
-                                 <div className="ml-auto bg-primary/10 text-primary px-3 py-1 rounded-lg text-xs font-medium">
-                                   Próx. vencimiento: {pendientes.length > 0 ? pendientes[0].fecha.toLocaleDateString('es-AR') : '-'}
-                                 </div>
-                               </div>
+                        </div>
+
+                        {/* Desktop-only columns */}
+                        <div className="hidden md:flex items-center gap-6 shrink-0">
+                          <span className="text-foreground font-bold text-sm w-20 text-right">
+                            {formatCurrency(pendientes.length > 0 ? pendientes[0].monto : exp.installmentAmount || Math.round(exp.total / exp.installments))}
+                          </span>
+                          <span className="text-warning text-xs w-16 text-right">
+                            {((exp.installmentAmount * exp.installments) - exp.total) > 0
+                              ? `+${formatCurrency((exp.installmentAmount * exp.installments) - exp.total)}`
+                              : '$0'}
+                          </span>
+                          <div className="flex flex-col items-center gap-1 w-24">
+                            <span className="text-[10px] text-muted-foreground">{pendientes.length} rest ({exp.current}/{exp.installments})</span>
+                            <div className="w-full bg-secondary h-1 rounded-full overflow-hidden">
+                              <div className="bg-primary h-full rounded-full" style={{ width: `${(pagadas.length / (cuotas.length || 1)) * 100}%` }} />
                             </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                          </div>
+                          <span className="text-muted-foreground text-xs w-20 text-right">{formatCurrency(exp.total)}</span>
+                        </div>
+
+                        {/* Actions — ALWAYS VISIBLE (not hover-only, works on mobile) */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {exp.installments > 1 && (
+                            <button
+                              onClick={() => setExpandedExpense(isExpanded ? null : exp.id)}
+                              className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary/50"
+                              title="Ver cuotas"
+                            >
+                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setEditingExpense({ ...exp })}
+                            className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-secondary/50"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('¿Seguro que querés eliminar este gasto?')) return;
+                              await handleDeleteExpense(exp.id);
+                            }}
+                            disabled={loadingAction}
+                            className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 p-2 rounded-lg hover:bg-secondary/50"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Expanded cuotas ──────────────────────── */}
+                    {isExpanded && exp.installments > 1 && (
+                      <div className="px-4 md:px-6 py-4 bg-secondary/20">
+                        <div className="bg-card/50 border border-border rounded-xl p-4 animate-fade-in">
+                          <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
+                            Desglose de Cuotas
+                          </h5>
+
+                          <div className="space-y-1">
+                            {cuotas.map(c => {
+                              const isPaid    = c.estado === 'Pagada';
+                              const isActual  = c.estado === 'Actual';
+                              const canMarkPaid = !isPaid;
+
+                              return (
+                                <div
+                                  key={c.numero}
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors
+                                    ${isPaid ? 'bg-success/5 border border-success/10' : isActual ? 'bg-primary/5 border border-primary/15' : 'border border-transparent hover:bg-secondary/30'}`}
+                                >
+                                  {/* Paid indicator / toggle button */}
+                                  <button
+                                    onClick={() => canMarkPaid && handleMarkPaid(exp, c.numero)}
+                                    disabled={isPaid || loadingAction}
+                                    className={`shrink-0 transition-colors disabled:cursor-default
+                                      ${isPaid ? 'text-success' : 'text-muted-foreground hover:text-success'}`}
+                                    title={isPaid ? 'Cuota pagada' : 'Marcar como pagada'}
+                                  >
+                                    {isPaid
+                                      ? <CheckCircle2 size={18} />
+                                      : <Circle size={18} />
+                                    }
+                                  </button>
+
+                                  {/* Cuota number */}
+                                  <span className={`font-mono text-xs w-8 shrink-0 ${isPaid ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                    #{c.numero}
+                                  </span>
+
+                                  {/* Date + note */}
+                                  <div className="flex-1 min-w-0">
+                                    <span className={`text-sm ${isPaid ? 'text-muted-foreground line-through decoration-success/60' : isActual ? 'text-primary font-medium' : 'text-foreground'}`}>
+                                      {c.fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                    </span>
+                                    {c.nota && (
+                                      <span className="block text-[10px] text-accent mt-0.5">{c.nota}</span>
+                                    )}
+                                  </div>
+
+                                  {/* Amount */}
+                                  <span className={`font-bold text-sm shrink-0 ${isPaid ? 'text-muted-foreground line-through decoration-success/60' : isActual ? 'text-primary' : 'text-foreground'}`}>
+                                    {formatCurrency(c.monto)}
+                                  </span>
+
+                                  {/* Status badge */}
+                                  <span className={`hidden sm:inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0
+                                    ${isPaid   ? 'bg-success/10 text-success border border-success/20' :
+                                      isActual ? 'bg-primary/20 text-primary border border-primary/30' :
+                                                 'bg-muted/50 text-muted-foreground border border-border'}`}>
+                                    {isPaid ? '✓ Pagada' : isActual ? '↻ Actual' : '· Pendiente'}
+                                  </span>
+
+                                  {/* Edit button — ALWAYS VISIBLE */}
+                                  <button
+                                    onClick={() => handleEditCuota(exp, c)}
+                                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors p-1"
+                                    title="Editar cuota"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Summary footer */}
+                          <div className="flex flex-wrap items-center gap-4 text-sm border-t border-border pt-3 mt-3">
+                            <div>
+                              <span className="text-muted-foreground">Pagado: </span>
+                              <span className="text-success font-bold">{formatCurrency(totalPagado)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Pendiente: </span>
+                              <span className="text-foreground font-bold">{formatCurrency(totalPendiente)}</span>
+                            </div>
+                            {pendientes.length > 0 && (
+                              <div className="ml-auto bg-primary/10 text-primary px-3 py-1 rounded-lg text-xs font-medium">
+                                Próx: {pendientes[0].fecha.toLocaleDateString('es-AR')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+
+              {cardExpenses.length === 0 && (
+                <div className="px-6 py-12 text-center text-muted-foreground text-sm">
+                  No hay gastos en este medio de pago.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* ── Dialog: todas las cuotas pagas ───────────────────── */}
+      <Dialog open={!!completedExpenseId} onOpenChange={(o) => !o && setCompletedExpenseId(null)}>
+        <DialogContent className="glass-panel border-border sm:max-w-sm text-center">
+          <DialogHeader>
+            <div className="flex justify-center mb-3">
+              <PartyPopper size={48} style={{ color: 'hsl(153 100% 50%)', filter: 'drop-shadow(0 0 8px hsl(153 100% 50% / 0.6))' }} />
+            </div>
+            <DialogTitle className="text-foreground text-xl">
+              ¡Todas las cuotas están pagas!
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm mt-2">
+            ¿Querés eliminar este gasto del registro? Podés dejarlo como historial o borrarlo.
+          </p>
+          <DialogFooter className="mt-6 flex gap-3 sm:flex-row">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setCompletedExpenseId(null)}
+            >
+              Mantener
+            </Button>
+            <Button
+              className="flex-1"
+              style={{ background: 'hsl(153 100% 50%)', color: 'hsl(153 100% 5%)' }}
+              disabled={loadingAction}
+              onClick={() => completedExpenseId && handleDeleteExpense(completedExpenseId)}
+            >
+              {loadingAction ? 'Eliminando...' : 'Sí, eliminar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: editar gasto ─────────────────────────────── */}
       {editingExpense && (
         <Dialog open={!!editingExpense} onOpenChange={(o) => !o && setEditingExpense(null)}>
           <DialogContent className="glass-panel border-border sm:max-w-md">
@@ -391,100 +491,101 @@ export default function CardDetail() {
               <DialogTitle className="text-foreground">Editar Gasto</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-               <div>
-                  <label className="text-sm text-muted-foreground">Descripción</label>
-                  <input className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.desc} onChange={e => setEditingExpense({...editingExpense, desc: e.target.value})} />
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-muted-foreground">Monto Total</label>
-                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.total} onChange={e => setEditingExpense({...editingExpense, total: Number(e.target.value)})} />
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">Monto por Cuota</label>
-                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installmentAmount || ''} onChange={e => setEditingExpense({...editingExpense, installmentAmount: Number(e.target.value)})} />
-                  </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="text-sm text-muted-foreground">Categoría</label>
-                   <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.category} onChange={e => setEditingExpense({...editingExpense, category: e.target.value})}>
-                     {CATEGORIES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
-                   </select>
-                 </div>
-                 <div>
-                   <label className="text-sm text-muted-foreground">Periodicidad</label>
-                   <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.periodicidad} onChange={e => setEditingExpense({...editingExpense, periodicidad: e.target.value as any})}>
-                     <option value="semanal" className="bg-card">Semanal</option>
-                     <option value="quincenal" className="bg-card">Quincenal</option>
-                     <option value="mensual" className="bg-card">Mensual</option>
-                   </select>
-                 </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-muted-foreground">Cuota Actual</label>
-                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.current} onChange={e => setEditingExpense({...editingExpense, current: Number(e.target.value)})} />
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">Cuotas Totales</label>
-                    <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installments} onChange={e => setEditingExpense({...editingExpense, installments: Number(e.target.value)})} />
-                  </div>
-               </div>
-               <Button className="w-full" disabled={loadingAction} onClick={async () => {
-                  setLoadingAction(true);
-                  try {
-                    await updateExpense(editingExpense);
-                    setEditingExpense(null);
-                  } catch (e) {
-                    toast({ title: 'Error al actualizar', variant: 'destructive' });
-                  } finally {
-                    setLoadingAction(false);
-                  }
-               }}>
-                 {loadingAction ? 'Guardando...' : 'Guardar'}
-               </Button>
+              <div>
+                <label className="text-sm text-muted-foreground">Descripción</label>
+                <input className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.desc} onChange={e => setEditingExpense({ ...editingExpense, desc: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-muted-foreground">Monto Total</label>
+                  <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.total} onChange={e => setEditingExpense({ ...editingExpense, total: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Monto por Cuota</label>
+                  <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installmentAmount || ''} onChange={e => setEditingExpense({ ...editingExpense, installmentAmount: Number(e.target.value) })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-muted-foreground">Categoría</label>
+                  <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.category} onChange={e => setEditingExpense({ ...editingExpense, category: e.target.value })}>
+                    {CATEGORIES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Periodicidad</label>
+                  <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.periodicidad} onChange={e => setEditingExpense({ ...editingExpense, periodicidad: e.target.value as Expense['periodicidad'] })}>
+                    <option value="semanal"   className="bg-card">Semanal</option>
+                    <option value="quincenal" className="bg-card">Quincenal</option>
+                    <option value="mensual"   className="bg-card">Mensual</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-muted-foreground">Cuota Actual</label>
+                  <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.current} onChange={e => setEditingExpense({ ...editingExpense, current: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Cuotas Totales</label>
+                  <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installments} onChange={e => setEditingExpense({ ...editingExpense, installments: Number(e.target.value) })} />
+                </div>
+              </div>
+              <Button className="w-full" disabled={loadingAction} onClick={async () => {
+                setLoadingAction(true);
+                try {
+                  await updateExpense(editingExpense);
+                  setEditingExpense(null);
+                } catch {
+                  toast({ title: 'Error al actualizar', variant: 'destructive' });
+                } finally {
+                  setLoadingAction(false);
+                }
+              }}>
+                {loadingAction ? 'Guardando...' : 'Guardar'}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       )}
 
-      {/* Modal Edición de Cuota Individual */}
+      {/* ── Dialog: editar cuota individual ──────────────────── */}
       {editingInstallment && (
         <Dialog open={!!editingInstallment} onOpenChange={(o) => !o && setEditingInstallment(null)}>
           <DialogContent className="glass-panel border-border sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-foreground">Editar Cuota {editingInstallment.num}</DialogTitle>
+              <DialogTitle className="text-foreground">Editar Cuota #{editingInstallment.num}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-muted-foreground">Monto</label>
-                <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" 
-                  value={editingInstallment.monto} 
-                  onChange={e => setEditingInstallment({...editingInstallment, monto: Number(e.target.value)})} />
+                <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground"
+                  value={editingInstallment.monto}
+                  onChange={e => setEditingInstallment({ ...editingInstallment, monto: Number(e.target.value) })} />
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Fecha de vencimiento</label>
-                <input type="date" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" 
-                  value={editingInstallment.fecha} 
-                  onChange={e => setEditingInstallment({...editingInstallment, fecha: e.target.value})} />
+                <input type="date" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground [color-scheme:dark]"
+                  value={editingInstallment.fecha}
+                  onChange={e => setEditingInstallment({ ...editingInstallment, fecha: e.target.value })} />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Nota opcional</label>
-                <input type="text" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" 
+                <label className="text-sm text-muted-foreground">Nota (opcional)</label>
+                <input type="text" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground placeholder:text-muted-foreground"
                   placeholder="Ej: Pago adelantado"
-                  value={editingInstallment.nota} 
-                  onChange={e => setEditingInstallment({...editingInstallment, nota: e.target.value})} />
+                  value={editingInstallment.nota}
+                  onChange={e => setEditingInstallment({ ...editingInstallment, nota: e.target.value })} />
               </div>
             </div>
             <DialogFooter className="mt-6">
               <Button variant="outline" onClick={() => setEditingInstallment(null)}>Cancelar</Button>
-              <Button onClick={handleSaveCuota} disabled={loadingAction}>{loadingAction ? 'Guardando...' : 'Guardar'}</Button>
+              <Button onClick={handleSaveCuota} disabled={loadingAction}>
+                {loadingAction ? 'Guardando...' : 'Guardar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
-
     </div>
   );
 }
