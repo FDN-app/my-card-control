@@ -139,31 +139,46 @@ export default function CardDetail() {
     }
   };
 
-  const handleMarkPaid = async (exp: Expense, cuotaNum: number) => {
+  const handleTogglePaid = async (exp: Expense, cuotaNum: number, currentlyPaid: boolean) => {
     setLoadingAction(true);
     const mods = { ...(exp.modificaciones_cuotas || {}) };
-    mods[cuotaNum] = { ...(mods[cuotaNum] || {}), pagada: true };
 
-    // Recalcular current: primer índice que no esté pagado ni eliminado
+    if (currentlyPaid) {
+      // DESMARCAR: materializar primero el estado del puntero para no perder cuotas implícitas
+      for (let i = 1; i < exp.current; i++) {
+        if (!mods[i]?.eliminada) {
+          mods[i] = { ...(mods[i] || {}), pagada: true };
+        }
+      }
+      mods[cuotaNum] = { ...(mods[cuotaNum] || {}), pagada: false };
+    } else {
+      // MARCAR COMO PAGADA
+      mods[cuotaNum] = { ...(mods[cuotaNum] || {}), pagada: true };
+    }
+
+    // Recalcular current: primer índice sin pagar ni eliminar (usando solo mods, ya materializados)
     let newCurrent = exp.installments + 1;
     for (let i = 1; i <= exp.installments; i++) {
-      if (mods[i]?.eliminada)            continue;
-      if (i < exp.current)               continue; // ya pagada por el puntero
-      if (mods[i]?.pagada)               continue; // pagada explícitamente
+      if (mods[i]?.eliminada) continue;
+      if (mods[i]?.pagada)    continue;
       newCurrent = i;
       break;
     }
 
     try {
       await updateExpense({ ...exp, modificaciones_cuotas: mods, current: newCurrent });
-      toast({ title: '✅ Cuota marcada como pagada' });
 
-      if (newCurrent > exp.installments) {
-        // Todas las cuotas están pagas
+      if (!currentlyPaid && newCurrent > exp.installments) {
         setCompletedExpenseId(exp.id);
+        toast({ title: '🎉 ¡Todas las cuotas pagadas!' });
+      } else if (currentlyPaid) {
+        if (completedExpenseId === exp.id) setCompletedExpenseId(null);
+        toast({ title: 'Cuota marcada como pendiente' });
+      } else {
+        toast({ title: '✅ Cuota marcada como pagada' });
       }
     } catch {
-      toast({ title: 'Error al marcar cuota', variant: 'destructive' });
+      toast({ title: 'Error al actualizar cuota', variant: 'destructive' });
     } finally {
       setLoadingAction(false);
     }
@@ -351,9 +366,8 @@ export default function CardDetail() {
 
                           <div className="space-y-1">
                             {cuotas.map(c => {
-                              const isPaid    = c.estado === 'Pagada';
-                              const isActual  = c.estado === 'Actual';
-                              const canMarkPaid = !isPaid;
+                              const isPaid   = c.estado === 'Pagada';
+                              const isActual = c.estado === 'Actual';
 
                               return (
                                 <div
@@ -361,13 +375,15 @@ export default function CardDetail() {
                                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors
                                     ${isPaid ? 'bg-success/5 border border-success/10' : isActual ? 'bg-primary/5 border border-primary/15' : 'border border-transparent hover:bg-secondary/30'}`}
                                 >
-                                  {/* Paid indicator / toggle button */}
+                                  {/* Toggle pagado/pendiente — siempre habilitado, funciona en mobile */}
                                   <button
-                                    onClick={() => canMarkPaid && handleMarkPaid(exp, c.numero)}
-                                    disabled={isPaid || loadingAction}
-                                    className={`shrink-0 transition-colors disabled:cursor-default
-                                      ${isPaid ? 'text-success' : 'text-muted-foreground hover:text-success'}`}
-                                    title={isPaid ? 'Cuota pagada' : 'Marcar como pagada'}
+                                    onClick={() => handleTogglePaid(exp, c.numero, isPaid)}
+                                    disabled={loadingAction}
+                                    className={`shrink-0 transition-all duration-150 disabled:opacity-50
+                                      ${isPaid
+                                        ? 'text-success hover:text-muted-foreground hover:scale-90'
+                                        : 'text-muted-foreground hover:text-success hover:scale-110'}`}
+                                    title={isPaid ? 'Desmarcar (volver a pendiente)' : 'Marcar como pagada'}
                                   >
                                     {isPaid
                                       ? <CheckCircle2 size={18} />
