@@ -57,8 +57,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: db.nombre,
         bank: db.banco,
         budget: Number(db.presupuesto_propio),
+        limit: db.limite ? Number(db.limite) : undefined,
         gradient: db.color || 'from-blue-600 to-indigo-700',
         lastDigits: db.ultimos_digitos || '',
+        tipo: db.tipo ?? undefined,
+        titularNombre: db.titular_nombre ?? undefined,
+        periodicidad: db.periodicidad ?? undefined,
       })) as CreditCard[];
     },
     enabled: !!user,
@@ -95,8 +99,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         nombre: card.name,
         banco: card.bank,
         presupuesto_propio: card.budget,
+        limite: card.limit ?? null,
         color: card.gradient,
-        ultimos_digitos: card.lastDigits,
+        ultimos_digitos: card.lastDigits ?? null,
+        tipo: card.tipo ?? null,
+        titular_nombre: card.titularNombre ?? null,
+        periodicidad: card.periodicidad ?? null,
       });
       if (error) throw error;
     },
@@ -112,8 +120,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         nombre: card.name,
         banco: card.bank,
         presupuesto_propio: card.budget,
+        limite: card.limit ?? null,
         color: card.gradient,
-        ultimos_digitos: card.lastDigits,
+        ultimos_digitos: card.lastDigits ?? null,
+        tipo: card.tipo ?? null,
+        titular_nombre: card.titularNombre ?? null,
+        periodicidad: card.periodicidad ?? null,
       }).eq('id', card.id);
       if (error) throw error;
     },
@@ -142,7 +154,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mutationFn: async (expense: Omit<Expense, 'id'>) => {
       const { error } = await supabase.from('gastos').insert({
         user_id: user!.id,
-        tarjeta_id: expense.cardId,
+        tarjeta_id: expense.cardId || null,
         descripcion: expense.desc,
         monto_total: expense.total,
         cuotas_total: expense.installments,
@@ -164,7 +176,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { mutateAsync: mutateUpdateExpense } = useMutation({
     mutationFn: async (expense: Expense) => {
       const { error } = await supabase.from('gastos').update({
-        tarjeta_id: expense.cardId,
+        tarjeta_id: expense.cardId || null,
         descripcion: expense.desc,
         monto_total: expense.total,
         cuotas_total: expense.installments,

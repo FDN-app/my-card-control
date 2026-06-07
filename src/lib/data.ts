@@ -1,15 +1,31 @@
+export const PAYMENT_TYPES = [
+  'Tarjeta de crédito',
+  'Tarjeta de débito',
+  'Tarjeta recargable',
+  'Tarjeta de tercero',
+  'Efectivo',
+  'Mercado Pago',
+  'Otro',
+] as const;
+
+export type PaymentType = typeof PAYMENT_TYPES[number];
+
 export interface CreditCard {
   id: string;
   bank: string;
   name: string;
   gradient: string;
   budget: number;
+  limit?: number;
   lastDigits?: string;
+  tipo?: PaymentType;
+  titularNombre?: string;
+  periodicidad?: 'Semanal' | 'Quincenal' | 'Mensual';
 }
 
 export interface Expense {
   id: string | number;
-  cardId: string;
+  cardId?: string;
   desc: string;
   total: number;
   installments: number;
@@ -36,10 +52,11 @@ export interface Subscription {
   tarjeta_id: string | null;
   nombre: string;
   monto: number;
-  periodicidad: 'Mensual' | 'Anual';
+  periodicidad: 'Semanal' | 'Quincenal' | 'Mensual' | 'Anual';
   fecha_proximo_cobro: string;
   estado: 'Activa' | 'Pausada' | 'Cancelada';
   notas?: string | null;
+  dias_alerta?: number;
   created_at?: string;
 }
 

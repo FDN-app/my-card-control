@@ -106,6 +106,24 @@ export function useFinanzas() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gastos_diarios', user?.id] }),
   });
 
+  const updateIngreso = useMutation({
+    mutationFn: async (ingreso: Ingreso) => {
+      const { id, user_id, ...updateData } = ingreso;
+      const { error } = await supabase.from('ingresos').update(updateData).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ingresos', user?.id] }),
+  });
+
+  const updateGastoDiario = useMutation({
+    mutationFn: async (gasto: GastoDiario) => {
+      const { id, user_id, ...updateData } = gasto;
+      const { error } = await supabase.from('gastos_diarios').update(updateData).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gastos_diarios', user?.id] }),
+  });
+
   const deleteIngreso = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('ingresos').delete().eq('id', id);
@@ -121,7 +139,9 @@ export function useFinanzas() {
     loading: loadingConfig || loadingIngresos || loadingGastos,
     setSalario: setSalario.mutateAsync,
     addIngreso: addIngreso.mutateAsync,
+    updateIngreso: updateIngreso.mutateAsync,
     addGastoDiario: addGastoDiario.mutateAsync,
+    updateGastoDiario: updateGastoDiario.mutateAsync,
     deleteGastoDiario: deleteGastoDiario.mutateAsync,
     deleteIngreso: deleteIngreso.mutateAsync,
   };

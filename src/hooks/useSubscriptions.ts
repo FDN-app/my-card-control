@@ -24,6 +24,7 @@ export const useSubscriptions = () => {
       return data as Subscription[];
     },
     enabled: !!user,
+    retry: false,
   });
 
   // Add subscription

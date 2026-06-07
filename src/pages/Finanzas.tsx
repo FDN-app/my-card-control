@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Wallet, TrendingUp, TrendingDown, DollarSign, Send, MessageSquare, Plus, Trash2, AlertCircle } from 'lucide-react';
-import { useFinanzas } from '@/hooks/useFinanzas';
+import { Wallet, TrendingUp, TrendingDown, DollarSign, Send, MessageSquare, Plus, Trash2, AlertCircle, Pencil, Check, X } from 'lucide-react';
+import { useFinanzas, type Ingreso, type GastoDiario } from '@/hooks/useFinanzas';
 import { useApp } from '@/lib/store';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { chatWithFinanceAssistant } from '@/services/openai';
@@ -12,17 +12,27 @@ const CATEGORIES = [
 
 export default function Finanzas() {
   const [activeTab, setActiveTab] = useState<'presupuesto'|'gastos'|'chat'>('presupuesto');
-  
-  const { configuracion, ingresos, gastosDiarios, setSalario, addIngreso, addGastoDiario, deleteIngreso, deleteGastoDiario, loading } = useFinanzas();
+
+  const { configuracion, ingresos, gastosDiarios, setSalario, addIngreso, updateIngreso, addGastoDiario, updateGastoDiario, deleteIngreso, deleteGastoDiario, loading } = useFinanzas();
   const { cards, getCardExpenses, nextMonthTotal } = useApp();
   const { subscriptions } = useSubscriptions();
 
   // State for forms
   const [salarioInput, setSalarioInput] = useState('');
   const [isEditingSalario, setIsEditingSalario] = useState(false);
-  
+
   const [nuevoIngreso, setNuevoIngreso] = useState({ monto: '', descripcion: '' });
   const [nuevoGasto, setNuevoGasto] = useState({ monto: '', categoria: CATEGORIES[0], descripcion: '', medio_pago: 'efectivo' });
+
+  // Edit state for ingresos
+  const [editingIngreso, setEditingIngreso] = useState<Ingreso | null>(null);
+  const [editIngresoForm, setEditIngresoForm] = useState({ monto: '', descripcion: '', fecha: '' });
+  const [savingIngreso, setSavingIngreso] = useState(false);
+
+  // Edit state for gastos diarios
+  const [editingGasto, setEditingGasto] = useState<GastoDiario | null>(null);
+  const [editGastoForm, setEditGastoForm] = useState({ monto: '', categoria: CATEGORIES[0], descripcion: '', medio_pago: 'efectivo', fecha: '' });
+  const [savingGasto, setSavingGasto] = useState(false);
 
   // Chat state
   const [chatHistory, setChatHistory] = useState<{role: 'user'|'assistant', content: string}[]>([]);
@@ -32,7 +42,7 @@ export default function Finanzas() {
   // Calculations for current month
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  
+
   const ingresosDelMes = useMemo(() => {
     return ingresos.filter(i => new Date(i.fecha).getTime() >= startOfMonth && i.tipo === 'variable');
   }, [ingresos, startOfMonth]);
@@ -42,11 +52,7 @@ export default function Finanzas() {
   }, [gastosDiarios, startOfMonth]);
 
   const totalSuscripciones = subscriptions.reduce((acc, sub) => acc + sub.monto, 0);
-  
-  // To get the card expenses of the current month exactly, we simplify by getting nextMonthTotal or similar logic
-  // For budget, let's use the `nextMonthTotal` (which actually projects the upcoming total payments)
-  // or calculate manually. For now, nextMonthTotal is a good approximation of "Cuotas de tarjeta"
-  const totalTarjetas = Number(nextMonthTotal) || 0; 
+  const totalTarjetas = Number(nextMonthTotal) || 0;
 
   const salarioFijo = configuracion?.salario_mensual || 0;
   const totalIngresosVariables = ingresosDelMes.reduce((acc, i) => acc + i.monto, 0);
@@ -56,16 +62,16 @@ export default function Finanzas() {
   const totalGastado = totalGastosDiarios + totalTarjetas + totalSuscripciones;
 
   const saldoDisponible = totalIngresado - totalGastado;
-  
+
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const daysRemaining = daysInMonth - now.getDate() + 1;
   const presupuestoDiario = saldoDisponible > 0 ? saldoDisponible / daysRemaining : 0;
 
   const porcentajeGastado = totalIngresado > 0 ? (totalGastado / totalIngresado) * 100 : 0;
-  
+
   const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 
-  // Handlers
+  // Handlers — salary
   const handleSaveSalario = async () => {
     const val = Number(salarioInput);
     if (val >= 0) {
@@ -75,6 +81,7 @@ export default function Finanzas() {
     }
   };
 
+  // Handlers — ingresos add
   const handleAddIngreso = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoIngreso.monto) return;
@@ -87,11 +94,37 @@ export default function Finanzas() {
       });
       setNuevoIngreso({ monto: '', descripcion: '' });
       toast.success("Ingreso registrado");
-    } catch (err) {
+    } catch {
       toast.error("Error al guardar");
     }
   };
 
+  // Handlers — ingresos edit
+  const openEditIngreso = (ing: Ingreso) => {
+    setEditingIngreso(ing);
+    setEditIngresoForm({ monto: String(ing.monto), descripcion: ing.descripcion || '', fecha: ing.fecha });
+  };
+
+  const handleSaveIngreso = async () => {
+    if (!editingIngreso) return;
+    setSavingIngreso(true);
+    try {
+      await updateIngreso({
+        ...editingIngreso,
+        monto: Number(editIngresoForm.monto),
+        descripcion: editIngresoForm.descripcion || null,
+        fecha: editIngresoForm.fecha,
+      });
+      setEditingIngreso(null);
+      toast.success("Ingreso actualizado");
+    } catch {
+      toast.error("Error al actualizar");
+    } finally {
+      setSavingIngreso(false);
+    }
+  };
+
+  // Handlers — gastos add
   const handleAddGasto = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoGasto.monto) return;
@@ -105,14 +138,41 @@ export default function Finanzas() {
       });
       setNuevoGasto({ ...nuevoGasto, monto: '', descripcion: '' });
       toast.success("Gasto registrado");
-    } catch (err) {
+    } catch {
       toast.error("Error al guardar");
+    }
+  };
+
+  // Handlers — gastos edit
+  const openEditGasto = (g: GastoDiario) => {
+    setEditingGasto(g);
+    setEditGastoForm({ monto: String(g.monto), categoria: g.categoria, descripcion: g.descripcion || '', medio_pago: g.medio_pago, fecha: g.fecha });
+  };
+
+  const handleSaveGasto = async () => {
+    if (!editingGasto) return;
+    setSavingGasto(true);
+    try {
+      await updateGastoDiario({
+        ...editingGasto,
+        monto: Number(editGastoForm.monto),
+        categoria: editGastoForm.categoria,
+        descripcion: editGastoForm.descripcion || null,
+        medio_pago: editGastoForm.medio_pago as GastoDiario['medio_pago'],
+        fecha: editGastoForm.fecha,
+      });
+      setEditingGasto(null);
+      toast.success("Gasto actualizado");
+    } catch {
+      toast.error("Error al actualizar");
+    } finally {
+      setSavingGasto(false);
     }
   };
 
   const handleSendMessage = async (msg: string) => {
     if (!msg.trim()) return;
-    
+
     const newMsg = { role: 'user' as const, content: msg };
     setChatHistory(prev => [...prev, newMsg]);
     setChatInput('');
@@ -132,9 +192,9 @@ export default function Finanzas() {
     try {
       const response = await chatWithFinanceAssistant(contextData, msg, chatHistory);
       setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
-    } catch (error) {
+    } catch {
       toast.error("Error al contactar al asistente");
-      setChatHistory(prev => prev.slice(0, -1)); // remove failed message or leave it?
+      setChatHistory(prev => prev.slice(0, -1));
     } finally {
       setChatLoading(false);
     }
@@ -168,16 +228,15 @@ export default function Finanzas() {
         <div className="space-y-6 animate-fade-in">
           {/* Resumen Card */}
           <div className="glass-panel border-border p-6 relative overflow-hidden">
-             {/* Progress Bar background hint */}
              <div className="absolute bottom-0 left-0 h-1 bg-border w-full">
                 <div className={`h-full transition-all duration-1000 ${porcentajeGastado >= 90 ? 'bg-destructive' : porcentajeGastado >= 75 ? 'bg-orange-500' : 'bg-success'}`} style={{ width: `${Math.min(porcentajeGastado, 100)}%` }} />
              </div>
-             
+
              <h2 className="text-xl font-bold mb-6 text-foreground flex items-center justify-between">
                 Mes en Curso
                 {porcentajeGastado >= 90 && <AlertCircle className="text-destructive animate-pulse" size={20} />}
              </h2>
-             
+
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-secondary/30 p-4 rounded-xl border border-border/50">
                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Ingresado</p>
@@ -204,7 +263,7 @@ export default function Finanzas() {
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-foreground"><DollarSign className="text-primary"/> Ingreso Fijo Mensual</h3>
               {isEditingSalario ? (
                  <div className="flex gap-2">
-                    <input type="number" className="flex-1 bg-secondary/50 border border-border rounded-lg px-4 py-2 text-foreground" 
+                    <input type="number" className="flex-1 bg-secondary/50 border border-border rounded-lg px-4 py-2 text-foreground"
                            placeholder="Ej: 800000" value={salarioInput} onChange={e => setSalarioInput(e.target.value)} />
                     <button onClick={handleSaveSalario} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium">Guardar</button>
                     <button onClick={() => setIsEditingSalario(false)} className="text-muted-foreground px-4">Cancelar</button>
@@ -233,12 +292,52 @@ export default function Finanzas() {
                   <p className="text-sm text-muted-foreground text-center py-4">No hay ingresos extra este mes</p>
                 ) : (
                   ingresosDelMes.map(ing => (
-                    <div key={ing.id} className="flex justify-between items-center text-sm p-3 bg-card border border-border rounded-lg">
-                       <div>
-                         <p className="font-medium text-foreground">{formatter.format(ing.monto)}</p>
-                         <p className="text-xs text-muted-foreground">{ing.descripcion || 'Sin descripción'} • {new Date(ing.fecha).toLocaleDateString()}</p>
-                       </div>
-                       <button onClick={() => deleteIngreso(ing.id)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16}/></button>
+                    <div key={ing.id}>
+                      {editingIngreso?.id === ing.id ? (
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              className="w-1/3 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground"
+                              placeholder="Monto"
+                              value={editIngresoForm.monto}
+                              onChange={e => setEditIngresoForm(f => ({ ...f, monto: e.target.value }))}
+                            />
+                            <input
+                              type="text"
+                              className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground"
+                              placeholder="Descripción"
+                              value={editIngresoForm.descripcion}
+                              onChange={e => setEditIngresoForm(f => ({ ...f, descripcion: e.target.value }))}
+                            />
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="date"
+                              className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground [color-scheme:dark]"
+                              value={editIngresoForm.fecha}
+                              onChange={e => setEditIngresoForm(f => ({ ...f, fecha: e.target.value }))}
+                            />
+                            <button onClick={handleSaveIngreso} disabled={savingIngreso} className="bg-success text-success-foreground p-1.5 rounded-lg disabled:opacity-50">
+                              <Check size={16}/>
+                            </button>
+                            <button onClick={() => setEditingIngreso(null)} className="text-muted-foreground p-1.5 rounded-lg hover:text-foreground">
+                              <X size={16}/>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center text-sm p-3 bg-card border border-border rounded-lg group">
+                           <div>
+                             <p className="font-medium text-foreground">{formatter.format(ing.monto)}</p>
+                             <p className="text-xs text-muted-foreground">{ing.descripcion || 'Sin descripción'} • {new Date(ing.fecha).toLocaleDateString()}</p>
+                           </div>
+                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button onClick={() => openEditIngreso(ing)} className="text-muted-foreground hover:text-primary p-1 rounded"><Pencil size={14}/></button>
+                             <button onClick={() => deleteIngreso(ing.id)} className="text-muted-foreground hover:text-destructive p-1 rounded"><Trash2 size={14}/></button>
+                           </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -292,15 +391,59 @@ export default function Finanzas() {
                    <p className="text-center text-muted-foreground py-8">Aún no registraste gastos este mes</p>
                  ) : (
                    gastosDiariosDelMes.map(g => (
-                     <div key={g.id} className="flex justify-between items-center p-3 bg-secondary/30 border border-border/50 rounded-xl hover:bg-secondary/50 transition-colors">
-                        <div className="flex flex-col">
-                           <span className="font-medium text-foreground">{g.categoria}</span>
-                           <span className="text-xs text-muted-foreground">{g.descripcion || g.medio_pago} • {new Date(g.fecha).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                           <span className="font-bold text-destructive">{formatter.format(g.monto)}</span>
-                           <button onClick={() => deleteGastoDiario(g.id)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16}/></button>
-                        </div>
+                     <div key={g.id}>
+                       {editingGasto?.id === g.id ? (
+                         <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3 animate-fade-in">
+                           <div className="grid grid-cols-2 gap-3">
+                             <div>
+                               <label className="text-xs text-muted-foreground">Monto</label>
+                               <input type="number" className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 mt-1 text-foreground text-sm" value={editGastoForm.monto} onChange={e => setEditGastoForm(f => ({ ...f, monto: e.target.value }))} />
+                             </div>
+                             <div>
+                               <label className="text-xs text-muted-foreground">Categoría</label>
+                               <select className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 mt-1 text-foreground text-sm" value={editGastoForm.categoria} onChange={e => setEditGastoForm(f => ({ ...f, categoria: e.target.value }))}>
+                                 {CATEGORIES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
+                               </select>
+                             </div>
+                           </div>
+                           <div className="grid grid-cols-2 gap-3">
+                             <div>
+                               <label className="text-xs text-muted-foreground">Descripción</label>
+                               <input type="text" className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 mt-1 text-foreground text-sm" value={editGastoForm.descripcion} onChange={e => setEditGastoForm(f => ({ ...f, descripcion: e.target.value }))} />
+                             </div>
+                             <div>
+                               <label className="text-xs text-muted-foreground">Fecha</label>
+                               <input type="date" className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 mt-1 text-foreground text-sm [color-scheme:dark]" value={editGastoForm.fecha} onChange={e => setEditGastoForm(f => ({ ...f, fecha: e.target.value }))} />
+                             </div>
+                           </div>
+                           <div className="flex gap-2 items-center">
+                             <button type="button" onClick={() => setEditGastoForm(f => ({ ...f, medio_pago: 'efectivo' }))} className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${editGastoForm.medio_pago === 'efectivo' ? 'bg-primary/20 text-primary border border-primary/50' : 'bg-secondary border border-border text-muted-foreground'}`}>Cash</button>
+                             <button type="button" onClick={() => setEditGastoForm(f => ({ ...f, medio_pago: 'transferencia' }))} className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${editGastoForm.medio_pago === 'transferencia' ? 'bg-primary/20 text-primary border border-primary/50' : 'bg-secondary border border-border text-muted-foreground'}`}>Transf</button>
+                             <div className="flex gap-2 ml-auto">
+                               <button onClick={handleSaveGasto} disabled={savingGasto} className="bg-success text-success-foreground px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-50">
+                                 <Check size={14}/> {savingGasto ? 'Guardando...' : 'Guardar'}
+                               </button>
+                               <button onClick={() => setEditingGasto(null)} className="bg-secondary text-muted-foreground px-4 py-1.5 rounded-lg text-sm hover:text-foreground flex items-center gap-1.5">
+                                 <X size={14}/> Cancelar
+                               </button>
+                             </div>
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="flex justify-between items-center p-3 bg-secondary/30 border border-border/50 rounded-xl hover:bg-secondary/50 transition-colors group">
+                            <div className="flex flex-col">
+                               <span className="font-medium text-foreground">{g.categoria}</span>
+                               <span className="text-xs text-muted-foreground">{g.descripcion || g.medio_pago} • {new Date(g.fecha).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                               <span className="font-bold text-destructive">{formatter.format(g.monto)}</span>
+                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <button onClick={() => openEditGasto(g)} className="text-muted-foreground hover:text-primary p-1 rounded"><Pencil size={14}/></button>
+                                 <button onClick={() => deleteGastoDiario(g.id)} className="text-muted-foreground hover:text-destructive p-1 rounded"><Trash2 size={14}/></button>
+                               </div>
+                            </div>
+                         </div>
+                       )}
                      </div>
                    ))
                  )}
@@ -312,7 +455,6 @@ export default function Finanzas() {
       {/* TAB 3: CHAT IA */}
       {activeTab === 'chat' && (
         <div className="glass-panel border-border p-4 flex flex-col h-[600px] animate-fade-in relative z-10 overflow-hidden">
-           {/* Header & Quick actions */}
            <div className="mb-4 space-y-3 shrink-0">
              <div className="flex items-center gap-2 text-primary font-bold">
                <MessageSquare size={20} /> Asesor IA
@@ -325,7 +467,6 @@ export default function Finanzas() {
              </div>
            </div>
 
-           {/* Chat Area */}
            <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4 scrollbar-hide flex flex-col">
               {chatHistory.length === 0 && (
                  <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-50">
@@ -348,14 +489,13 @@ export default function Finanzas() {
               )}
            </div>
 
-           {/* Input */}
            <div className="shrink-0 pt-2 border-t border-border">
              <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(chatInput); }} className="flex gap-2">
-               <input 
-                 type="text" 
+               <input
+                 type="text"
                  value={chatInput}
                  onChange={e => setChatInput(e.target.value)}
-                 placeholder="Escribe tu pregunta..." 
+                 placeholder="Escribe tu pregunta..."
                  className="flex-1 bg-secondary border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                  disabled={chatLoading}
                />

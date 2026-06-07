@@ -502,7 +502,7 @@ export default function CardDetail() {
       {/* ── Dialog: editar gasto ─────────────────────────────── */}
       {editingExpense && (
         <Dialog open={!!editingExpense} onOpenChange={(o) => !o && setEditingExpense(null)}>
-          <DialogContent className="glass-panel border-border sm:max-w-md">
+          <DialogContent className="glass-panel border-border sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-foreground">Editar Gasto</DialogTitle>
             </DialogHeader>
@@ -510,6 +510,13 @@ export default function CardDetail() {
               <div>
                 <label className="text-sm text-muted-foreground">Descripción</label>
                 <input className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.desc} onChange={e => setEditingExpense({ ...editingExpense, desc: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Medio de Pago</label>
+                <select className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.cardId || ''} onChange={e => setEditingExpense({ ...editingExpense, cardId: e.target.value || undefined })}>
+                  <option value="" className="bg-card">Sin medio de pago</option>
+                  {cards.map(c => <option key={c.id} value={c.id} className="bg-card">{c.bank ? `${c.bank} — ` : ''}{c.name}</option>)}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -520,6 +527,10 @@ export default function CardDetail() {
                   <label className="text-sm text-muted-foreground">Monto por Cuota</label>
                   <input type="number" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground" value={editingExpense.installmentAmount || ''} onChange={e => setEditingExpense({ ...editingExpense, installmentAmount: Number(e.target.value) })} />
                 </div>
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Fecha primera cuota</label>
+                <input type="date" className="w-full bg-secondary/50 border border-border p-2 rounded mt-1 text-foreground [color-scheme:dark]" value={editingExpense.date} onChange={e => setEditingExpense({ ...editingExpense, date: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -558,7 +569,7 @@ export default function CardDetail() {
                   setLoadingAction(false);
                 }
               }}>
-                {loadingAction ? 'Guardando...' : 'Guardar'}
+                {loadingAction ? 'Guardando...' : 'Guardar Cambios'}
               </Button>
             </div>
           </DialogContent>

@@ -12,11 +12,12 @@ import { toast } from 'sonner';
 const subscriptionSchema = z.object({
   nombre: z.string().min(2, "Mínimo 2 caracteres"),
   monto: z.coerce.number().min(1, "El monto debe ser numérico y mayor a 0"),
-  tarjeta_id: z.string().min(1, "Selecciona una tarjeta"),
+  tarjeta_id: z.string().optional().nullable(),
   fecha_proximo_cobro: z.string().min(1, "Selecciona la fecha"),
-  periodicidad: z.enum(['Mensual', 'Anual']),
+  periodicidad: z.enum(['Semanal', 'Quincenal', 'Mensual', 'Anual']),
   estado: z.enum(['Activa', 'Pausada', 'Cancelada']),
   notas: z.string().optional().nullable(),
+  dias_alerta: z.coerce.number().int().min(1).max(30).default(3),
 });
 
 type SubscriptionFormVals = z.infer<typeof subscriptionSchema>;
@@ -38,6 +39,7 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
       periodicidad: 'Mensual',
       estado: 'Activa',
       fecha_proximo_cobro: new Date().toISOString().split('T')[0],
+      dias_alerta: 3,
     }
   });
 
@@ -47,21 +49,23 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
         reset({
           nombre: subscriptionToEdit.nombre,
           monto: subscriptionToEdit.monto,
-          tarjeta_id: subscriptionToEdit.tarjeta_id || cards[0]?.id || '',
+          tarjeta_id: subscriptionToEdit.tarjeta_id || '',
           fecha_proximo_cobro: subscriptionToEdit.fecha_proximo_cobro ? subscriptionToEdit.fecha_proximo_cobro.split('T')[0] : new Date().toISOString().split('T')[0],
           periodicidad: subscriptionToEdit.periodicidad,
           estado: subscriptionToEdit.estado,
           notas: subscriptionToEdit.notas || '',
+          dias_alerta: subscriptionToEdit.dias_alerta ?? 3,
         });
       } else {
         reset({
           nombre: '',
           monto: 0,
-          tarjeta_id: cards[0]?.id || '',
+          tarjeta_id: '',
           fecha_proximo_cobro: new Date().toISOString().split('T')[0],
           periodicidad: 'Mensual',
           estado: 'Activa',
           notas: '',
+          dias_alerta: 3,
         });
       }
     }
@@ -127,17 +131,16 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Tarjeta</label>
+              <label className="text-sm font-medium text-muted-foreground">Medio de Pago <span className="font-normal opacity-60">(opcional)</span></label>
               <select
                 {...register('tarjeta_id')}
                 className="w-full bg-secondary/50 border border-border rounded-xl p-3 mt-1 text-foreground focus:ring-1 focus:ring-primary outline-none transition-all appearance-none"
               >
-                <option value="" disabled className="bg-card text-muted-foreground">Selecciona una tarjeta</option>
+                <option value="" className="bg-card text-muted-foreground">Sin medio de pago</option>
                 {cards.map(c => (
-                  <option key={c.id} value={c.id} className="bg-card text-foreground">{c.bank} - {c.lastDigits || ''}</option>
+                  <option key={c.id} value={c.id} className="bg-card text-foreground">{c.bank ? `${c.bank} — ` : ''}{c.name}</option>
                 ))}
               </select>
-              {errors.tarjeta_id && <p className="text-red-500 text-xs mt-1">{errors.tarjeta_id.message}</p>}
             </div>
           </div>
 
@@ -158,19 +161,38 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
                 {...register('periodicidad')}
                 className="w-full bg-secondary/50 border border-border rounded-xl p-3 mt-1 text-foreground focus:ring-1 focus:ring-primary outline-none transition-all appearance-none"
               >
+                <option value="Semanal" className="bg-card">Semanal</option>
+                <option value="Quincenal" className="bg-card">Quincenal</option>
                 <option value="Mensual" className="bg-card">Mensual</option>
                 <option value="Anual" className="bg-card">Anual</option>
               </select>
             </div>
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Notas (Opcional)</label>
-            <input
-              {...register('notas')}
-              className="w-full bg-secondary/50 border border-border rounded-xl p-3 mt-1 text-foreground focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground"
-              placeholder="Algún detalle importante..."
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Notas (Opcional)</label>
+              <input
+                {...register('notas')}
+                className="w-full bg-secondary/50 border border-border rounded-xl p-3 mt-1 text-foreground focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground"
+                placeholder="Algún detalle..."
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Días de alerta</label>
+              <div className="relative mt-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  {...register('dias_alerta')}
+                  className="w-full bg-secondary/50 border border-border rounded-xl p-3 pr-12 text-foreground focus:ring-1 focus:ring-primary outline-none transition-all"
+                />
+                <span className="absolute right-3 top-3 text-xs text-muted-foreground">días</span>
+              </div>
+              {errors.dias_alerta && <p className="text-red-500 text-xs mt-1">{errors.dias_alerta.message}</p>}
+            </div>
           </div>
 
           <div>

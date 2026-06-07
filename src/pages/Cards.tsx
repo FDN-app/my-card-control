@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useApp } from '@/lib/store';
-import { formatCurrency } from '@/lib/data';
+import { formatCurrency, PAYMENT_TYPES } from '@/lib/data';
 import { CreditCardVisual } from '@/components/CreditCardVisual';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { CreditCard } from '@/lib/data';
 import { toast } from 'sonner';
@@ -26,23 +27,55 @@ export default function Cards() {
   const [editing, setEditing] = useState<CreditCard | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [form, setForm] = useState({ bank: '', name: '', gradient: GRADIENTS[0].value, budget: '', lastDigits: '' });
+  const emptyForm = {
+    tipo: 'Tarjeta de crédito' as CreditCard['tipo'],
+    bank: '',
+    name: '',
+    gradient: GRADIENTS[0].value,
+    budget: '',
+    limit: '',
+    lastDigits: '',
+    titularNombre: '',
+    periodicidad: 'Mensual' as CreditCard['periodicidad'],
+  };
+
+  const [form, setForm] = useState(emptyForm);
 
   const openNew = () => {
     setEditing(null);
-    setForm({ bank: '', name: '', gradient: GRADIENTS[0].value, budget: '', lastDigits: '' });
+    setForm(emptyForm);
     setOpen(true);
   };
 
   const openEdit = (card: CreditCard) => {
     setEditing(card);
-    setForm({ bank: card.bank, name: card.name, gradient: card.gradient, budget: String(card.budget), lastDigits: card.lastDigits });
+    setForm({
+      tipo: card.tipo ?? 'Tarjeta de crédito',
+      bank: card.bank,
+      name: card.name,
+      gradient: card.gradient,
+      budget: String(card.budget),
+      limit: card.limit ? String(card.limit) : '',
+      lastDigits: card.lastDigits ?? '',
+      titularNombre: card.titularNombre ?? '',
+      periodicidad: card.periodicidad ?? 'Mensual',
+    });
     setOpen(true);
   };
 
   const handleSave = async () => {
     setLoading(true);
-    const data = { bank: form.bank, name: form.name, gradient: form.gradient, budget: Number(form.budget), lastDigits: form.lastDigits };
+    const data: Omit<CreditCard, 'id'> = {
+      tipo: form.tipo,
+      bank: form.bank,
+      name: form.name,
+      gradient: form.gradient,
+      budget: Number(form.budget),
+      limit: form.limit ? Number(form.limit) : undefined,
+      lastDigits: form.lastDigits || undefined,
+      titularNombre: form.tipo === 'Tarjeta de tercero' ? form.titularNombre || undefined : undefined,
+      periodicidad: form.periodicidad,
+    };
     try {
       if (editing) {
         await updateCard({ ...data, id: editing.id });
@@ -51,10 +84,10 @@ export default function Cards() {
       }
       setOpen(false);
       setEditing(null);
-      setForm({ bank: '', name: '', gradient: GRADIENTS[0].value, budget: '', lastDigits: '' });
+      setForm(emptyForm);
     } catch(e) {
       console.error(e);
-      toast.error('Error al guardar tarjeta. Verifique su conexión y vuelva a intentar.');
+      toast.error('Error al guardar. Verifique su conexión y vuelva a intentar.');
     } finally {
       setLoading(false);
     }
@@ -65,10 +98,10 @@ export default function Cards() {
       <div className="flex justify-between items-center">
         <div>
           <p className="text-muted-foreground text-sm mb-1 uppercase tracking-widest pl-1">Gestión</p>
-          <h2 className="text-4xl md:text-5xl font-black tracking-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto]">Mis Tarjetas</h2>
+          <h2 className="text-4xl md:text-5xl font-black tracking-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto]">Medios de Pago</h2>
         </div>
         <Button onClick={openNew} className="gap-2">
-          <Plus size={18} /> Nueva Tarjeta
+          <Plus size={18} /> Nuevo Medio
         </Button>
       </div>
 
@@ -96,31 +129,68 @@ export default function Cards() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="glass-panel border-border sm:max-w-md">
+        <DialogContent className="glass-panel border-border sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-foreground">{editing ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</DialogTitle>
+            <DialogTitle className="text-foreground">{editing ? 'Editar Medio de Pago' : 'Nuevo Medio de Pago'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <Label>Tipo</Label>
+              <Select value={form.tipo} onValueChange={v => setForm(f => ({ ...f, tipo: v as CreditCard['tipo'] }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Banco</Label>
-                <Input value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} placeholder="Galicia" />
+                <Label>Banco / Entidad <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Input value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} placeholder="Galicia, Naranja X..." />
               </div>
               <div>
                 <Label>Nombre</Label>
-                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Visa Signature" />
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Mi Visa, Efectivo, etc." />
               </div>
             </div>
+
+            {form.tipo === 'Tarjeta de tercero' && (
+              <div>
+                <Label>Nombre del titular <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Input value={form.titularNombre} onChange={e => setForm(f => ({ ...f, titularNombre: e.target.value }))} placeholder="Juan Pérez" />
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Presupuesto</Label>
-                <Input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} placeholder="450000" />
+                <Label>Límite ($)</Label>
+                <Input type="number" value={form.limit} onChange={e => setForm(f => ({ ...f, limit: e.target.value }))} placeholder="500000" />
               </div>
+              <div>
+                <Label>Presupuesto propio ($)</Label>
+                <Input type="number" value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} placeholder="400000" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Últimos 4 dígitos</Label>
                 <Input maxLength={4} value={form.lastDigits} onChange={e => setForm(f => ({ ...f, lastDigits: e.target.value }))} placeholder="4492" />
               </div>
+              <div>
+                <Label>Periodicidad de pago</Label>
+                <Select value={form.periodicidad} onValueChange={v => setForm(f => ({ ...f, periodicidad: v as CreditCard['periodicidad'] }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Semanal">Semanal</SelectItem>
+                    <SelectItem value="Quincenal">Quincenal</SelectItem>
+                    <SelectItem value="Mensual">Mensual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
             <div>
               <Label>Color</Label>
               <div className="flex gap-2 mt-2">
@@ -133,8 +203,9 @@ export default function Cards() {
                 ))}
               </div>
             </div>
-            <Button className="w-full" onClick={handleSave} disabled={!form.bank || !form.name || !form.budget || loading}>
-              {loading ? 'Guardando...' : editing ? 'Guardar Cambios' : 'Crear Tarjeta'}
+
+            <Button className="w-full" onClick={handleSave} disabled={!form.name || !form.budget || loading}>
+              {loading ? 'Guardando...' : editing ? 'Guardar Cambios' : 'Crear Medio de Pago'}
             </Button>
           </div>
         </DialogContent>
