@@ -64,16 +64,28 @@ export default function Cards() {
   };
 
   const handleSave = async () => {
+    const budget = parseFloat(form.budget);
+    const limit = form.limit.trim() !== '' ? parseFloat(form.limit) : undefined;
+
+    if (isNaN(budget) || budget <= 0) {
+      toast.error('El presupuesto debe ser un número mayor a 0.');
+      return;
+    }
+    if (limit !== undefined && isNaN(limit)) {
+      toast.error('El límite debe ser un número válido.');
+      return;
+    }
+
     setLoading(true);
     const data: Omit<CreditCard, 'id'> = {
       tipo: form.tipo,
       bank: form.bank,
       name: form.name,
       gradient: form.gradient,
-      budget: Number(form.budget),
-      limit: form.limit ? Number(form.limit) : undefined,
-      lastDigits: form.lastDigits || undefined,
-      titularNombre: form.tipo === 'Tarjeta de tercero' ? form.titularNombre || undefined : undefined,
+      budget,
+      limit,
+      lastDigits: form.lastDigits.trim() || undefined,
+      titularNombre: form.tipo === 'Tarjeta de tercero' ? form.titularNombre.trim() || undefined : undefined,
       periodicidad: form.periodicidad,
     };
     try {
@@ -85,9 +97,9 @@ export default function Cards() {
       setOpen(false);
       setEditing(null);
       setForm(emptyForm);
-    } catch(e) {
+    } catch(e: any) {
       console.error(e);
-      toast.error('Error al guardar. Verifique su conexión y vuelva a intentar.');
+      toast.error(e?.message || 'Error al guardar. Verifique su conexión y vuelva a intentar.');
     } finally {
       setLoading(false);
     }

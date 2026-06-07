@@ -116,21 +116,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const { mutateAsync: mutateUpdateCard } = useMutation({
     mutationFn: async (card: CreditCard) => {
-      const { error } = await supabase.from('tarjetas').update({
+      const { data, error } = await supabase.from('tarjetas').update({
         nombre: card.name,
         banco: card.bank,
-        presupuesto_propio: card.budget,
-        limite: card.limit ?? null,
+        presupuesto_propio: Number(card.budget),
+        limite: card.limit != null ? Number(card.limit) : null,
         color: card.gradient,
         ultimos_digitos: card.lastDigits ?? null,
         tipo: card.tipo ?? null,
         titular_nombre: card.titularNombre ?? null,
         periodicidad: card.periodicidad ?? null,
-      }).eq('id', card.id);
+      }).eq('id', card.id).select();
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('La tarjeta no fue encontrada o no tenés permisos para editarla.');
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['cards'] });
+      await queryClient.invalidateQueries({ queryKey: ['cards', user?.id] });
       toast.success("Tarjeta actualizada");
     }
   });
