@@ -19,6 +19,34 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Push notification handler
+self.addEventListener('push', (e) => {
+  const data = e.data ? e.data.json() : {};
+  const title = data.title ?? 'CuotaCtrl';
+  const body = data.body ?? '';
+  const url = data.url ?? '/';
+  e.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      data: { url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url ?? '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+      const c = cs.find((w) => w.url.includes(self.location.origin));
+      if (c) return c.focus().then(w => w.navigate(url));
+      return clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener('fetch', (e) => {
   // Skip non-GET, Supabase API calls, and chrome-extension
   if (

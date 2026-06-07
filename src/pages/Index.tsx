@@ -9,6 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { generateMonthlySummary, generateNextMonthPrediction } from '@/services/openai';
+import NetBalance from '@/components/NetBalance';
+import BudgetPieChart from '@/components/BudgetPieChart';
+import ExpenseCalendar from '@/components/ExpenseCalendar';
+import ExportButton from '@/components/ExportButton';
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f97316'];
 
@@ -112,7 +116,7 @@ export default function Dashboard() {
   const subAlerts = subMetrics.filter(s => s.diffDays <= subscriptionAlertDays);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in" id="dashboard-export">
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between md:items-end gap-4">
         <div>
@@ -133,11 +137,12 @@ export default function Dashboard() {
           <Button onClick={() => summary ? setShowSummaryModal(true) : handleGenerateSummary()} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2" title="Resumen Inteligente">
              <Sparkles size={16} /> <span className="hidden md:inline">Resumen IA</span>
           </Button>
-          <Button variant="outline" size="icon" onClick={() => window.print()} className="print:hidden border-border/50 bg-secondary/30 hover:bg-secondary/80" title="Exportar a PDF">
-             <Printer size={18} />
-          </Button>
+          <ExportButton targetId="dashboard-export" />
         </div>
       </header>
+
+      {/* Net Balance */}
+      <NetBalance />
 
       {!loadingData && cards.length === 0 && expenses.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-center surface-elevated rounded-3xl mt-8 border border-dashed border-primary/30 relative overflow-hidden animate-fade-in shadow-[0_0_50px_hsl(var(--primary)/0.1)]">
@@ -266,6 +271,12 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* Gastos diarios por categoría */}
+          <BudgetPieChart />
+
+          {/* Calendario de gastos */}
+          <ExpenseCalendar />
 
           {/* Predicción IA */}
           <div className="surface-elevated rounded-2xl p-6 mt-8 relative overflow-hidden">
