@@ -7,7 +7,7 @@ export function useTelegramAlert() {
   const sendAlert = useCallback(async (tipo: string, detalle: string) => {
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke('send-telegram', {
+      const { error } = await supabase.functions.invoke('dynamic-action', {
         body: { tipo, detalle },
       });
       if (error) throw error;
