@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useTelegramAlert } from '@/hooks/useTelegramAlert';
 
 export interface Ingreso {
   id: string;
@@ -24,6 +25,7 @@ export interface GastoDiario {
 export function useFinanzas() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { sendAlert } = useTelegramAlert();
 
   const { data: configuracion, isLoading: loadingConfig } = useQuery({
     queryKey: ['configuracion', user?.id],
@@ -95,7 +97,14 @@ export function useFinanzas() {
         .insert([{ ...gasto, user_id: user!.id }]);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gastos_diarios', user?.id] }),
+    onSuccess: (_data, gasto) => {
+      queryClient.invalidateQueries({ queryKey: ['gastos_diarios', user?.id] });
+      if (gasto.monto > 50000) {
+        sendAlert('💸 Gasto grande', `$${gasto.monto} ARS en ${gasto.categoria}`);
+      }
+      // Note: no per-category budget limit exists in the schema yet, so the
+      // "presupuesto al límite" alert (>= 80% of category budget) can't be wired up.
+    },
   });
   
   const deleteGastoDiario = useMutation({
