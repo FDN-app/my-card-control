@@ -4,18 +4,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import CurrencySelector from '@/components/CurrencySelector';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { Bell, BellOff, Loader2 } from 'lucide-react';
+import { useTelegramAlert } from '@/hooks/useTelegramAlert';
+import { Send, Loader2 } from 'lucide-react';
 
 export default function SettingsPage() {
   const { cards, updateCard, alertThreshold, setAlertThreshold, subscriptionAlertDays, setSubscriptionAlertDays } = useApp();
   const { toast } = useToast();
   const { rates, setRates } = useCurrency();
-  const { permission, subscribed, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications();
+  const { sending, sendAlert } = useTelegramAlert();
   const [profile, setProfile] = useState({ name: 'Tomas Cook', email: 'tomas@cuotactrl.com' });
   const [rateForm, setRateForm] = useState({ USD: String(rates.USD), EUR: String(rates.EUR) });
 
@@ -39,15 +38,12 @@ export default function SettingsPage() {
     toast({ title: 'Configuración guardada', description: 'Tus preferencias se actualizaron correctamente.' });
   };
 
-  const handlePushToggle = async () => {
-    if (subscribed) {
-      await unsubscribe();
-      toast({ title: 'Notificaciones desactivadas' });
-    } else {
-      await subscribe();
-      if (permission === 'granted') {
-        toast({ title: 'Notificaciones activadas', description: 'Recibirás alertas de presupuesto y cuotas.' });
-      }
+  const handleTestNotification = async () => {
+    try {
+      await sendAlert('🔔 Notificación de prueba', 'Si ves este mensaje en Telegram, las alertas de CuotaCtrl están funcionando correctamente.');
+      toast({ title: 'Notificación enviada', description: 'Revisá tu chat de Telegram.' });
+    } catch (e: any) {
+      toast({ title: 'Error al enviar', description: e?.message || 'No se pudo contactar al bot de Telegram.', variant: 'destructive' });
     }
   };
 
@@ -111,34 +107,17 @@ export default function SettingsPage() {
         <Button variant="outline" size="sm" onClick={handleSaveRates}>Guardar tasas</Button>
       </div>
 
-      {/* Push notifications */}
+      {/* Telegram notifications */}
       <div className="surface-elevated rounded-2xl p-6 space-y-4">
-        <h3 className="text-foreground font-bold text-lg">Notificaciones Push</h3>
+        <h3 className="text-foreground font-bold text-lg">Notificaciones por Telegram</h3>
         <p className="text-muted-foreground text-sm">
-          Recibí alertas cuando tu presupuesto supere el 80% o cuando una suscripción esté por cobrar.
+          CuotaCtrl te avisa por Telegram cuando un gasto supera los $50.000 ARS o una categoría
+          alcanza el 80% de su presupuesto. Probá la conexión con tu bot:
         </p>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {subscribed ? <Bell size={20} className="text-primary" /> : <BellOff size={20} className="text-muted-foreground" />}
-            <div>
-              <p className="text-foreground text-sm font-medium">
-                {subscribed ? 'Notificaciones activas' : 'Notificaciones inactivas'}
-              </p>
-              {permission === 'denied' && (
-                <p className="text-xs text-destructive">Permiso denegado. Habilitalo en la configuración del navegador.</p>
-              )}
-            </div>
-          </div>
-          {pushLoading ? (
-            <Loader2 size={18} className="animate-spin text-muted-foreground" />
-          ) : (
-            <Switch
-              checked={subscribed}
-              onCheckedChange={handlePushToggle}
-              disabled={permission === 'denied'}
-            />
-          )}
-        </div>
+        <Button variant="outline" size="sm" onClick={handleTestNotification} disabled={sending} className="gap-2">
+          {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+          {sending ? 'Enviando...' : 'Test notificación'}
+        </Button>
       </div>
 
       {/* Alert threshold */}
