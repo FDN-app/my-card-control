@@ -18,7 +18,7 @@ create policy "Users manage own push subscriptions"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- Currency column on gastos (optional — used for future multi-currency tracking)
+-- Currency column on gastos / gastos_diarios (optional — used for future multi-currency tracking)
 alter table public.gastos
   add column if not exists currency text not null default 'ARS';
 
