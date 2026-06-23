@@ -4,12 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import CurrencySelector from '@/components/CurrencySelector';
 import { useTelegramAlert } from '@/hooks/useTelegramAlert';
+import { useTelegram } from '@/hooks/useTelegram';
 import { useFinanzas, CATEGORIAS_GASTOS, type Presupuesto, type ReglaCategoria } from '@/hooks/useFinanzas';
-import { Send, Loader2, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Send, Loader2, Plus, Trash2, Pencil, Check, X, MessageCircle, LinkIcon } from 'lucide-react';
 
 const ALL_CATEGORIES = [
   'Supermercado', 'Alimentos', 'Comida', 'Transporte', 'Servicios',
@@ -23,6 +25,15 @@ export default function SettingsPage() {
   const { rates, setRates } = useCurrency();
   const { sending, sendAlert } = useTelegramAlert();
   const {
+    chatIdVinculado,
+    codigoActivo,
+    polling,
+    generarCodigoVinculacion,
+    iniciarPolling,
+    detenerPolling,
+    desvincularTelegram,
+  } = useTelegram();
+  const {
     presupuestos, gastadoPorCategoria,
     addPresupuesto, updatePresupuesto, deletePresupuesto,
     reglas, addRegla, updateRegla, deleteRegla,
@@ -30,6 +41,10 @@ export default function SettingsPage() {
 
   const [profile, setProfile] = useState({ name: 'Tomas Cook', email: 'tomas@cuotactrl.com' });
   const [rateForm, setRateForm] = useState({ USD: String(rates.USD), EUR: String(rates.EUR) });
+
+  // ── Estado: Vinculación Telegram ─────────────────────────────────────────
+  const [modalTelegram, setModalTelegram] = useState(false);
+  const [vinculacionExitosa, setVinculacionExitosa] = useState(false);
 
   // ── Estado: Presupuestos ─────────────────────────────────────────────────
   const [newPresupuesto, setNewPresupuesto] = useState({ categoria: ALL_CATEGORIES[0], limite_mensual: '' });
@@ -65,10 +80,44 @@ export default function SettingsPage() {
 
   const handleTestNotification = async () => {
     try {
-      await sendAlert('🔔 Notificación de prueba', 'Si ves este mensaje en Telegram, las alertas de CuotaCtrl están funcionando correctamente.');
-      toast({ title: 'Notificación enviada', description: 'Revisá tu chat de Telegram.' });
+      const enviado = await sendAlert('🔔 Notificación de prueba', 'Si ves este mensaje en Telegram, las alertas de CuotaCtrl están funcionando correctamente.');
+      if (enviado) {
+        toast({ title: 'Notificación enviada', description: 'Revisá tu chat de Telegram.' });
+      } else {
+        toast({ title: 'Telegram no vinculado', description: 'Vinculá tu Telegram primero desde la sección de arriba.', variant: 'destructive' });
+      }
     } catch (e: any) {
       toast({ title: 'Error al enviar', description: e?.message || 'No se pudo contactar al bot de Telegram.', variant: 'destructive' });
+    }
+  };
+
+  // ── Handlers: Vinculación Telegram ───────────────────────────────────────
+  const handleAbrirModalTelegram = async () => {
+    setVinculacionExitosa(false);
+    setModalTelegram(true);
+    try {
+      await generarCodigoVinculacion();
+      iniciarPolling(() => {
+        setVinculacionExitosa(true);
+        setTimeout(() => setModalTelegram(false), 2500);
+      });
+    } catch (e: any) {
+      toast({ title: 'Error al generar código', description: e?.message, variant: 'destructive' });
+      setModalTelegram(false);
+    }
+  };
+
+  const handleCerrarModalTelegram = () => {
+    detenerPolling();
+    setModalTelegram(false);
+  };
+
+  const handleDesvincularTelegram = async () => {
+    try {
+      await desvincularTelegram();
+      toast({ title: 'Telegram desvinculado' });
+    } catch (e: any) {
+      toast({ title: 'Error al desvincular', description: e?.message, variant: 'destructive' });
     }
   };
 
@@ -202,6 +251,82 @@ export default function SettingsPage() {
         <Button variant="outline" size="sm" onClick={handleSaveRates}>Guardar tasas</Button>
       </div>
 
+      {/* Vincular Telegram */}
+      <div className="surface-elevated rounded-2xl p-6 space-y-4">
+        <h3 className="text-foreground font-bold text-lg">Vincular Telegram</h3>
+        {chatIdVinculado === undefined ? (
+          <p className="text-muted-foreground text-sm">Cargando estado de vinculación...</p>
+        ) : chatIdVinculado ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-green-500 text-base">✅</span>
+              <span className="text-foreground font-medium">Telegram vinculado correctamente</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleDesvincularTelegram}>
+              Desvincular
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-muted-foreground text-sm">
+              Vinculá tu cuenta de Telegram para recibir alertas personalizadas de gastos y presupuestos.
+            </p>
+            <Button variant="outline" size="sm" onClick={handleAbrirModalTelegram} className="gap-2">
+              <MessageCircle size={15} />
+              Vincular Telegram
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de vinculación */}
+      <Dialog open={modalTelegram} onOpenChange={open => { if (!open) handleCerrarModalTelegram(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Vinculá tu Telegram</DialogTitle>
+            <DialogDescription>
+              Enviá este código al bot y la vinculación se completa sola.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-2">
+            {vinculacionExitosa ? (
+              <div className="text-center space-y-3 py-4">
+                <p className="text-5xl">✅</p>
+                <p className="font-semibold text-foreground">Telegram vinculado correctamente</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col items-center gap-4">
+                  <div className="bg-primary/10 border border-primary/30 rounded-xl px-10 py-5">
+                    <span className="text-3xl font-bold tracking-widest text-primary font-mono">
+                      {codigoActivo ?? '···'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => window.open('https://t.me/cardcontrol_alertas_bot', '_blank')}
+                  >
+                    <LinkIcon size={14} />
+                    Abrir bot en Telegram
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-sm text-center">
+                  Pegá este código en el bot y mandalo. La vinculación se completa sola.
+                </p>
+                {polling && (
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Esperando vinculación...</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Notificaciones por Telegram */}
       <div className="surface-elevated rounded-2xl p-6 space-y-4">
         <h3 className="text-foreground font-bold text-lg">Notificaciones por Telegram</h3>
@@ -209,7 +334,7 @@ export default function SettingsPage() {
           CuotaCtrl te avisa por Telegram cuando un gasto supera los $50.000 ARS o una categoría
           alcanza el umbral de su presupuesto. Probá la conexión con tu bot:
         </p>
-        <Button variant="outline" size="sm" onClick={handleTestNotification} disabled={sending} className="gap-2">
+        <Button variant="outline" size="sm" onClick={handleTestNotification} disabled={sending || !chatIdVinculado} className="gap-2">
           {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           {sending ? 'Enviando...' : 'Test notificación'}
         </Button>
