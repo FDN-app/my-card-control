@@ -85,7 +85,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         category: db.categoria,
         installmentAmount: Number(db.monto_cuota) || 0,
         periodicidad: db.periodicidad || 'mensual',
-        modificaciones_cuotas: db.modificaciones_cuotas || {}
+        modificaciones_cuotas: db.modificaciones_cuotas || {},
+        tasa_interes: Number(db.tasa_interes) || 0,
       })) as Expense[];
     },
     enabled: !!user,

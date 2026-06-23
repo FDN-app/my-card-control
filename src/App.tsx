@@ -16,6 +16,7 @@ import ImportExpenses from "./pages/ImportExpenses";
 import Subscriptions from "./pages/Subscriptions";
 import Finanzas from "./pages/Finanzas";
 import SettingsPage from "./pages/Settings";
+import MetasAhorro from "./pages/MetasAhorro";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
@@ -44,6 +45,7 @@ const App = () => (
                     <Route path="/gastos/importar" element={<ImportExpenses />} />
                     <Route path="/suscripciones" element={<Subscriptions />} />
                     <Route path="/finanzas" element={<Finanzas />} />
+                    <Route path="/metas" element={<MetasAhorro />} />
                     <Route path="/configuracion" element={<SettingsPage />} />
                   </Route>
                 </Route>

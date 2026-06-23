@@ -1,7 +1,7 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CreditCard, PlusCircle, FileUp,
-  Settings, TrendingDown, Bell, LogOut, Wallet,
+  Settings, TrendingDown, Bell, LogOut, Wallet, Target,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -14,6 +14,7 @@ const SIDEBAR_ITEMS = [
   { icon: PlusCircle,      label: 'Nuevo Gasto',    path: '/gastos/nuevo' },
   { icon: FileUp,          label: 'Importar',       path: '/gastos/importar' },
   { icon: Bell,            label: 'Suscripciones',  path: '/suscripciones' },
+  { icon: Target,          label: 'Metas de Ahorro', path: '/metas' },
 ];
 
 // 5 items for mobile — center item is the CTA

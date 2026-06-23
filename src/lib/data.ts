@@ -35,6 +35,7 @@ export interface Expense {
   installmentAmount: number;
   periodicidad?: 'semanal' | 'quincenal' | 'mensual';
   modificaciones_cuotas?: Record<number, { monto?: number; fecha?: string; nota?: string; eliminada?: boolean; pagada?: boolean }>;
+  tasa_interes?: number;
 }
 
 export type AppView = 'dashboard' | 'cards' | 'card-detail' | 'new-expense' | 'import' | 'settings';

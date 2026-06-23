@@ -13,6 +13,8 @@ import NetBalance from '@/components/NetBalance';
 import BudgetPieChart from '@/components/BudgetPieChart';
 import ExpenseCalendar from '@/components/ExpenseCalendar';
 import ExportButton from '@/components/ExportButton';
+import ComparativaMensual from '@/components/ComparativaMensual';
+import DeudaFutura from '@/components/DeudaFutura';
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f97316'];
 
@@ -277,6 +279,12 @@ export default function Dashboard() {
 
           {/* Calendario de gastos */}
           <ExpenseCalendar />
+
+          {/* Comparativa mes vs mes anterior */}
+          <ComparativaMensual />
+
+          {/* Deuda futura en cuotas */}
+          <DeudaFutura />
 
           {/* Predicción IA */}
           <div className="surface-elevated rounded-2xl p-6 mt-8 relative overflow-hidden">
