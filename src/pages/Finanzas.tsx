@@ -21,12 +21,12 @@ export default function Finanzas() {
   const [salarioInput, setSalarioInput] = useState('');
   const [isEditingSalario, setIsEditingSalario] = useState(false);
 
-  const [nuevoIngreso, setNuevoIngreso] = useState({ monto: '', descripcion: '' });
+  const [nuevoIngreso, setNuevoIngreso] = useState({ monto: '', descripcion: '', tipo: 'variable' as 'fijo' | 'variable' });
   const [nuevoGasto, setNuevoGasto] = useState({ monto: '', categoria: CATEGORIES[0], descripcion: '', medio_pago: 'efectivo' });
 
   // Edit state for ingresos
   const [editingIngreso, setEditingIngreso] = useState<Ingreso | null>(null);
-  const [editIngresoForm, setEditIngresoForm] = useState({ monto: '', descripcion: '', fecha: '' });
+  const [editIngresoForm, setEditIngresoForm] = useState({ monto: '', descripcion: '', fecha: '', tipo: 'variable' as 'fijo' | 'variable' });
   const [savingIngreso, setSavingIngreso] = useState(false);
 
   // Edit state for gastos diarios
@@ -43,9 +43,18 @@ export default function Finanzas() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
+  // Mostrar todos los ingresos del mes (fijo y variable)
   const ingresosDelMes = useMemo(() => {
-    return ingresos.filter(i => new Date(i.fecha).getTime() >= startOfMonth && i.tipo === 'variable');
+    return ingresos.filter(i => new Date(i.fecha).getTime() >= startOfMonth);
   }, [ingresos, startOfMonth]);
+
+  const totalIngresosVariable = useMemo(() =>
+    ingresosDelMes.filter(i => i.tipo === 'variable').reduce((acc, i) => acc + i.monto, 0),
+    [ingresosDelMes]);
+
+  const totalIngresosFijo = useMemo(() =>
+    ingresosDelMes.filter(i => i.tipo === 'fijo').reduce((acc, i) => acc + i.monto, 0),
+    [ingresosDelMes]);
 
   const gastosDiariosDelMes = useMemo(() => {
     return gastosDiarios.filter(g => new Date(g.fecha).getTime() >= startOfMonth);
@@ -55,8 +64,8 @@ export default function Finanzas() {
   const totalTarjetas = Number(nextMonthTotal) || 0;
 
   const salarioFijo = configuracion?.salario_mensual || 0;
-  const totalIngresosVariables = ingresosDelMes.reduce((acc, i) => acc + i.monto, 0);
-  const totalIngresado = salarioFijo + totalIngresosVariables;
+  const totalIngresosVariables = totalIngresosVariable;
+  const totalIngresado = salarioFijo + totalIngresosFijo + totalIngresosVariables;
 
   const totalGastosDiarios = gastosDiariosDelMes.reduce((acc, g) => acc + g.monto, 0);
   const totalGastado = totalGastosDiarios + totalTarjetas + totalSuscripciones;
@@ -90,9 +99,9 @@ export default function Finanzas() {
         fecha: new Date().toISOString().split('T')[0],
         monto: Number(nuevoIngreso.monto),
         descripcion: nuevoIngreso.descripcion || null,
-        tipo: 'variable'
+        tipo: nuevoIngreso.tipo,
       });
-      setNuevoIngreso({ monto: '', descripcion: '' });
+      setNuevoIngreso({ monto: '', descripcion: '', tipo: nuevoIngreso.tipo });
       toast.success("Ingreso registrado");
     } catch {
       toast.error("Error al guardar");
@@ -102,7 +111,7 @@ export default function Finanzas() {
   // Handlers — ingresos edit
   const openEditIngreso = (ing: Ingreso) => {
     setEditingIngreso(ing);
-    setEditIngresoForm({ monto: String(ing.monto), descripcion: ing.descripcion || '', fecha: ing.fecha });
+    setEditIngresoForm({ monto: String(ing.monto), descripcion: ing.descripcion || '', fecha: ing.fecha, tipo: ing.tipo });
   };
 
   const handleSaveIngreso = async () => {
@@ -114,6 +123,7 @@ export default function Finanzas() {
         monto: Number(editIngresoForm.monto),
         descripcion: editIngresoForm.descripcion || null,
         fecha: editIngresoForm.fecha,
+        tipo: editIngresoForm.tipo,
       });
       setEditingIngreso(null);
       toast.success("Ingreso actualizado");
@@ -280,29 +290,65 @@ export default function Finanzas() {
             </div>
 
             <div className="glass-panel border-border p-6">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-success"><TrendingUp className="text-success"/> Ingresos Extras Hoy</h3>
-              <form onSubmit={handleAddIngreso} className="flex gap-2 mb-6">
-                 <input type="number" placeholder="Monto" className="w-1/3 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={nuevoIngreso.monto} onChange={e => setNuevoIngreso({...nuevoIngreso, monto: e.target.value})} required />
-                 <input type="text" placeholder="Ej: Venta, Uber..." className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={nuevoIngreso.descripcion} onChange={e => setNuevoIngreso({...nuevoIngreso, descripcion: e.target.value})} />
-                 <button type="submit" className="bg-success text-success-foreground p-2 rounded-lg"><Plus size={20}/></button>
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-success"><TrendingUp className="text-success"/> Ingresos del Mes</h3>
+
+              {/* Totales por tipo */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-secondary/30 border border-border/50 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Fijo (en blanco)</p>
+                  <p className="text-base font-bold text-foreground">{formatter.format(totalIngresosFijo)}</p>
+                </div>
+                <div className="bg-secondary/30 border border-border/50 rounded-lg p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Variable (Uber/extras)</p>
+                  <p className="text-base font-bold text-foreground">{formatter.format(totalIngresosVariable)}</p>
+                </div>
+              </div>
+
+              {/* Formulario */}
+              <form onSubmit={handleAddIngreso} className="space-y-2 mb-4">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNuevoIngreso(f => ({ ...f, tipo: 'fijo' }))}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${nuevoIngreso.tipo === 'fijo' ? 'bg-primary/20 text-primary border border-primary/50' : 'bg-secondary border border-border text-muted-foreground'}`}
+                  >
+                    Fijo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNuevoIngreso(f => ({ ...f, tipo: 'variable' }))}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${nuevoIngreso.tipo === 'variable' ? 'bg-success/20 text-success border border-success/50' : 'bg-secondary border border-border text-muted-foreground'}`}
+                  >
+                    Variable
+                  </button>
+                  <input type="number" placeholder="Monto" className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={nuevoIngreso.monto} onChange={e => setNuevoIngreso({...nuevoIngreso, monto: e.target.value})} required />
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Ej: Sueldo, Uber, Venta..." className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={nuevoIngreso.descripcion} onChange={e => setNuevoIngreso({...nuevoIngreso, descripcion: e.target.value})} />
+                  <button type="submit" className="bg-success text-success-foreground p-2 rounded-lg"><Plus size={20}/></button>
+                </div>
               </form>
 
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {ingresosDelMes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No hay ingresos extra este mes</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No hay ingresos registrados este mes</p>
                 ) : (
                   ingresosDelMes.map(ing => (
                     <div key={ing.id}>
                       {editingIngreso?.id === ing.id ? (
                         <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
                           <div className="flex gap-2">
+                            <button type="button" onClick={() => setEditIngresoForm(f => ({ ...f, tipo: 'fijo' }))} className={`px-2 py-1.5 rounded text-xs ${editIngresoForm.tipo === 'fijo' ? 'bg-primary/20 text-primary border border-primary/50' : 'bg-secondary border border-border text-muted-foreground'}`}>Fijo</button>
+                            <button type="button" onClick={() => setEditIngresoForm(f => ({ ...f, tipo: 'variable' }))} className={`px-2 py-1.5 rounded text-xs ${editIngresoForm.tipo === 'variable' ? 'bg-success/20 text-success border border-success/50' : 'bg-secondary border border-border text-muted-foreground'}`}>Variable</button>
                             <input
                               type="number"
-                              className="w-1/3 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground"
+                              className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground"
                               placeholder="Monto"
                               value={editIngresoForm.monto}
                               onChange={e => setEditIngresoForm(f => ({ ...f, monto: e.target.value }))}
                             />
+                          </div>
+                          <div className="flex gap-2">
                             <input
                               type="text"
                               className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground"
@@ -310,27 +356,32 @@ export default function Finanzas() {
                               value={editIngresoForm.descripcion}
                               onChange={e => setEditIngresoForm(f => ({ ...f, descripcion: e.target.value }))}
                             />
-                          </div>
-                          <div className="flex gap-2 items-center">
                             <input
                               type="date"
-                              className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground [color-scheme:dark]"
+                              className="w-36 bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground [color-scheme:dark]"
                               value={editIngresoForm.fecha}
                               onChange={e => setEditIngresoForm(f => ({ ...f, fecha: e.target.value }))}
                             />
-                            <button onClick={handleSaveIngreso} disabled={savingIngreso} className="bg-success text-success-foreground p-1.5 rounded-lg disabled:opacity-50">
-                              <Check size={16}/>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={handleSaveIngreso} disabled={savingIngreso} className="bg-success text-success-foreground px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 disabled:opacity-50">
+                              <Check size={14}/> Guardar
                             </button>
-                            <button onClick={() => setEditingIngreso(null)} className="text-muted-foreground p-1.5 rounded-lg hover:text-foreground">
-                              <X size={16}/>
+                            <button onClick={() => setEditingIngreso(null)} className="text-muted-foreground px-3 py-1.5 rounded-lg hover:text-foreground text-sm flex items-center gap-1">
+                              <X size={14}/> Cancelar
                             </button>
                           </div>
                         </div>
                       ) : (
                         <div className="flex justify-between items-center text-sm p-3 bg-card border border-border rounded-lg group">
-                           <div>
-                             <p className="font-medium text-foreground">{formatter.format(ing.monto)}</p>
-                             <p className="text-xs text-muted-foreground">{ing.descripcion || 'Sin descripción'} • {new Date(ing.fecha).toLocaleDateString()}</p>
+                           <div className="flex items-center gap-2">
+                             <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${ing.tipo === 'fijo' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-success/10 text-success border-success/30'}`}>
+                               {ing.tipo === 'fijo' ? 'Fijo' : 'Variable'}
+                             </span>
+                             <div>
+                               <p className="font-medium text-foreground">{formatter.format(ing.monto)}</p>
+                               <p className="text-xs text-muted-foreground">{ing.descripcion || 'Sin descripción'} • {new Date(ing.fecha).toLocaleDateString()}</p>
+                             </div>
                            </div>
                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                              <button onClick={() => openEditIngreso(ing)} className="text-muted-foreground hover:text-primary p-1 rounded"><Pencil size={14}/></button>

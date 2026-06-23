@@ -51,6 +51,18 @@ export interface MetaAhorro {
   created_at: string;
 }
 
+export interface Jornada {
+  id: string;
+  user_id: string;
+  fecha: string;
+  facturado: number;
+  gasto_nafta: number;
+  km_recorridos: number;
+  horas: number;
+  notas: string | null;
+  created_at: string;
+}
+
 export const CATEGORIAS_GASTOS = [
   'Supermercado', 'Servicios', 'Transporte', 'Comida', 'Entretenimiento',
   'Salud', 'Educación', 'Ropa', 'Transferencia', 'Ahorro', 'Otros',
@@ -199,6 +211,32 @@ export function useFinanzas() {
     },
     enabled: !!user,
   });
+
+  const { data: jornadas = [], isLoading: loadingJornadas } = useQuery({
+    queryKey: ['jornadas', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('jornadas')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('fecha', { ascending: false });
+      if (error) throw error;
+      return data as Jornada[];
+    },
+    enabled: !!user,
+  });
+
+  // ── Ingresos por tipo del mes actual ─────────────────────────────────────
+
+  const { ingresosFijoMes, ingresosVariableMes } = (() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const mes = ingresos.filter(i => i.fecha >= startOfMonth);
+    return {
+      ingresosFijoMes: mes.filter(i => i.tipo === 'fijo'),
+      ingresosVariableMes: mes.filter(i => i.tipo === 'variable'),
+    };
+  })();
 
   // ── Gasto por categoría vs presupuesto (mes actual) ──────────────────────
 
@@ -418,15 +456,45 @@ export function useFinanzas() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['metas_ahorro', user?.id] }),
   });
 
+  // ── Mutations: Jornadas ───────────────────────────────────────────────────
+
+  const addJornada = useMutation({
+    mutationFn: async (j: Omit<Jornada, 'id' | 'user_id' | 'created_at'>) => {
+      const { error } = await supabase.from('jornadas').insert([{ ...j, user_id: user!.id }]);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jornadas', user?.id] }),
+  });
+
+  const updateJornada = useMutation({
+    mutationFn: async (j: Jornada) => {
+      const { id, user_id, created_at, ...updateData } = j;
+      const { error } = await supabase.from('jornadas').update(updateData).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jornadas', user?.id] }),
+  });
+
+  const deleteJornada = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('jornadas').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jornadas', user?.id] }),
+  });
+
   return {
     configuracion,
     ingresos,
+    ingresosFijoMes,
+    ingresosVariableMes,
     gastosDiarios,
     presupuestos,
     reglas,
     metasAhorro,
+    jornadas,
     gastadoPorCategoria,
-    loading: loadingConfig || loadingIngresos || loadingGastos || loadingPresupuestos || loadingReglas || loadingMetas,
+    loading: loadingConfig || loadingIngresos || loadingGastos || loadingPresupuestos || loadingReglas || loadingMetas || loadingJornadas,
     setSalario: setSalario.mutateAsync,
     addIngreso: addIngreso.mutateAsync,
     updateIngreso: updateIngreso.mutateAsync,
@@ -444,5 +512,8 @@ export function useFinanzas() {
     updateMeta: updateMeta.mutateAsync,
     deleteMeta: deleteMeta.mutateAsync,
     agregarAporte: agregarAporte.mutateAsync,
+    addJornada: addJornada.mutateAsync,
+    updateJornada: updateJornada.mutateAsync,
+    deleteJornada: deleteJornada.mutateAsync,
   };
 }
