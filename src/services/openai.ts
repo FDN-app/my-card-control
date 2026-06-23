@@ -1,7 +1,24 @@
-export async function generateMonthlySummary(contextData: any) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  if (!apiKey) throw new Error("API Key de OpenAI no configurada.");
+// La API key de OpenAI ya NO vive en el frontend.
+// Todas las llamadas pasan por la Edge Function "openai-chat" que valida el JWT
+// y usa OPENAI_API_KEY configurada como secret en Supabase.
+import { supabase } from '@/lib/supabase';
 
+interface OpenAIParams {
+  messages: Array<{ role: string; content: string }>;
+  temperature?: number;
+  response_format?: { type: string };
+}
+
+async function callOpenAI(params: OpenAIParams): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('openai-chat', {
+    body: params,
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data?.content ?? '';
+}
+
+export async function generateMonthlySummary(contextData: unknown): Promise<string> {
   const prompt = `
 Analiza los datos financieros mensuales de este usuario de la aplicación Card Control.
 Eres un asistente financiero experto.
@@ -17,40 +34,22 @@ Instrucciones obligatorias:
 5. Usa español natural de Argentina o neutro. Escribe en texto plano puro con saltos de línea, usa guiones para las listas. NO USES asteriscos (**) ni símbolos de markdown porque no tenemos renderizador de markdown. Usa emojis apropiados.
   `;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "Eres un asesor financiero personal." },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-    }),
+  return callOpenAI({
+    messages: [
+      { role: 'system', content: 'Eres un asesor financiero personal.' },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.7,
   });
-
-  if (!response.ok) {
-    throw new Error("Error al conectar con OpenAI");
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "No se pudo generar el análisis.";
 }
 
-export async function generateNextMonthPrediction(contextData: any) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  if (!apiKey) throw new Error("API Key de OpenAI no configurada.");
-
+export async function generateNextMonthPrediction(contextData: unknown): Promise<unknown> {
   const prompt = `
 Eres un modelo predictivo integrado en Card Control.
 Aquí tienes los gastos de los últimos 3 meses, cuotas activas, presupuestos de tarjetas y suscripciones:
 ${JSON.stringify(contextData, null, 2)}
 
-Analiza estos patrones para predecir el próximo mes. 
+Analiza estos patrones para predecir el próximo mes.
 REGLA ESTRICTA: Devuelve EXCLUSIVAMENTE un JSON válido, sin formato \`\`\`json.
 Estructura exacta:
 {
@@ -65,38 +64,24 @@ Estructura exacta:
 }
 `;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "Eres una API que responde estrictamente en formato JSON válido." },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.2, // low temperature for structured output
-      response_format: { type: "json_object" }
-    }),
+  const content = await callOpenAI({
+    messages: [
+      { role: 'system', content: 'Eres una API que responde estrictamente en formato JSON válido.' },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.2,
+    response_format: { type: 'json_object' },
   });
 
-  if (!response.ok) {
-    throw new Error("Error al consultar la predicción a OpenAI");
-  }
-
-  const result = await response.json();
-  const content = result.choices?.[0]?.message?.content;
-  if (!content) throw new Error("No data returned by OpenAI.");
   return JSON.parse(content);
 }
 
-export async function chatWithFinanceAssistant(contextData: any, userMessage: string, history: {role: 'user'|'assistant', content: string}[]) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  if (!apiKey) throw new Error("API Key de OpenAI no configurada.");
-
-  const prompt = `
+export async function chatWithFinanceAssistant(
+  contextData: unknown,
+  userMessage: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+): Promise<string> {
+  const systemPrompt = `
 Eres un asistente financiero personal integrado en la aplicación Card Control.
 Tienes acceso al estado actual del usuario, incluyendo su salario mensual, ingresos registrados, gastos recientes, cuotas de tarjetas y suscripciones.
 
@@ -111,29 +96,12 @@ Instrucciones:
 - Si está gastando de más, diselo directamente pero con tacto.
   `;
 
-  const messages = [
-    { role: "system", content: prompt },
-    ...history.map(m => ({ role: m.role, content: m.content })),
-    { role: "user", content: userMessage }
-  ];
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: messages,
-      temperature: 0.7,
-    }),
+  return callOpenAI({
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...history.map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: userMessage },
+    ],
+    temperature: 0.7,
   });
-
-  if (!response.ok) {
-    throw new Error("Error al conectar con OpenAI");
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "No se pudo generar respuesta.";
 }
