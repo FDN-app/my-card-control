@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+
+# Scripts de utilidad con credenciales — no deben rastrearse
+register_user.mjs
+runMigration.mjs

@@ -452,7 +452,12 @@ export default function Dashboard() {
                 <p>Analizando tus finanzas con IA...</p>
               </div>
             ) : summary ? (
-              <div dangerouslySetInnerHTML={{ __html: summary.replace(/\n|-(?=\s)/g, '<br/>&bull;') }} />
+              /* Renderizado seguro: sin dangerouslySetInnerHTML para evitar XSS con respuestas de OpenAI */
+              <div className="space-y-1">
+                {summary.split('\n').map((line, i) => (
+                  <p key={i}>{line.startsWith('- ') ? `• ${line.slice(2)}` : line}</p>
+                ))}
+              </div>
             ) : null}
             {!loadingSummary && (
               <div className="mt-8 flex justify-end">

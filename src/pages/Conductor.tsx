@@ -390,21 +390,21 @@ export default function Conductor() {
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Facturado</label>
-                        <input type="number" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.facturado} onChange={e => setEditForm(f => ({ ...f, facturado: e.target.value }))} />
+                        <input type="number" min="0" step="any" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.facturado} onChange={e => setEditForm(f => ({ ...f, facturado: e.target.value }))} />
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <label className="text-xs text-muted-foreground">Nafta</label>
-                        <input type="number" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.gasto_nafta} onChange={e => setEditForm(f => ({ ...f, gasto_nafta: e.target.value }))} />
+                        <input type="number" min="0" step="any" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.gasto_nafta} onChange={e => setEditForm(f => ({ ...f, gasto_nafta: e.target.value }))} />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Km</label>
-                        <input type="number" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.km_recorridos} onChange={e => setEditForm(f => ({ ...f, km_recorridos: e.target.value }))} />
+                        <input type="number" min="0" step="any" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.km_recorridos} onChange={e => setEditForm(f => ({ ...f, km_recorridos: e.target.value }))} />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Horas</label>
-                        <input type="number" step="0.5" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.horas} onChange={e => setEditForm(f => ({ ...f, horas: e.target.value }))} />
+                        <input type="number" min="0" step="0.5" className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground" value={editForm.horas} onChange={e => setEditForm(f => ({ ...f, horas: e.target.value }))} />
                       </div>
                     </div>
                     <div>

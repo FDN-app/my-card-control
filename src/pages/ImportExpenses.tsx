@@ -53,6 +53,8 @@ export default function ImportExpenses() {
         current: item.current,
         date: new Date().toISOString().slice(0, 10),
         category: item.category,
+        installmentAmount: Math.round(item.total / item.installments),
+        periodicidad: 'mensual',
       });
     });
     setSaved(true);
