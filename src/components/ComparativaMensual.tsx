@@ -4,34 +4,51 @@ import { useFinanzas } from '@/hooks/useFinanzas';
 import { formatCurrency } from '@/lib/data';
 
 export default function ComparativaMensual() {
-  const { gastosDiarios } = useFinanzas();
+  // jornadas es la fuente de verdad para nafta Uber — se agrega como "Combustible"
+  const { gastosDiarios, jornadas } = useFinanzas();
 
   const { actual, anterior, deltaAbs, deltaPct, porCategoria, mesActualLabel, mesAnteriorLabel } = useMemo(() => {
     const now = new Date();
-    const startActual = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const startActual   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const startAnterior = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-    const endAnterior = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    const endAnterior   = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
-    const mesActualLabel = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    const mesActualLabel   = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
     const mesAnteriorLabel = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
 
-    const gastosMesActual = gastosDiarios.filter(g => g.fecha >= startActual);
+    const gastosMesActual   = gastosDiarios.filter(g => g.fecha >= startActual);
     const gastosMesAnterior = gastosDiarios.filter(g => g.fecha >= startAnterior && g.fecha <= endAnterior);
 
-    const actual = gastosMesActual.reduce((s, g) => s + g.monto, 0);
-    const anterior = gastosMesAnterior.reduce((s, g) => s + g.monto, 0);
+    // Nafta Uber del mes actual y anterior
+    const naftaActual = jornadas
+      .filter(j => j.fecha >= startActual)
+      .reduce((s, j) => s + j.gasto_nafta, 0);
+    const naftaAnterior = jornadas
+      .filter(j => j.fecha >= startAnterior && j.fecha <= endAnterior)
+      .reduce((s, j) => s + j.gasto_nafta, 0);
+
+    const actual   = gastosMesActual.reduce((s, g) => s + g.monto, 0) + naftaActual;
+    const anterior = gastosMesAnterior.reduce((s, g) => s + g.monto, 0) + naftaAnterior;
+
     const deltaAbs = actual - anterior;
     const deltaPct = anterior > 0 ? Math.round((deltaAbs / anterior) * 100) : null;
 
+    // Por categoría (incluye "Combustible" si hay nafta)
     const cats = new Set([
       ...gastosMesActual.map(g => g.categoria),
       ...gastosMesAnterior.map(g => g.categoria),
+      ...(naftaActual > 0 || naftaAnterior > 0 ? ['Combustible'] : []),
     ]);
+
     const porCategoria = Array.from(cats)
       .map(cat => {
-        const a = gastosMesActual.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0);
-        const b = gastosMesAnterior.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0);
+        const a = cat === 'Combustible'
+          ? naftaActual
+          : gastosMesActual.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0);
+        const b = cat === 'Combustible'
+          ? naftaAnterior
+          : gastosMesAnterior.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0);
         const d = a - b;
         const dp = b > 0 ? Math.round((d / b) * 100) : null;
         return { categoria: cat, actual: a, anterior: b, delta: d, deltaPct: dp };
@@ -40,7 +57,7 @@ export default function ComparativaMensual() {
       .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 
     return { actual, anterior, deltaAbs, deltaPct, porCategoria, mesActualLabel, mesAnteriorLabel };
-  }, [gastosDiarios]);
+  }, [gastosDiarios, jornadas]);
 
   const DeltaChip = ({ delta, pct }: { delta: number; pct: number | null }) => {
     if (delta === 0) return (
@@ -61,10 +78,9 @@ export default function ComparativaMensual() {
     <div className="surface-elevated rounded-2xl p-6 space-y-5">
       <div>
         <h3 className="text-lg font-bold text-foreground">Comparativa Mensual</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Gastos diarios: mes actual vs mes anterior</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Gastos diarios + nafta Uber: mes actual vs mes anterior</p>
       </div>
 
-      {/* Totales */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-secondary/30 border border-border/50 rounded-xl p-4">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 capitalize">{mesActualLabel}</p>
@@ -76,7 +92,6 @@ export default function ComparativaMensual() {
         </div>
       </div>
 
-      {/* Delta total */}
       <div className={`flex items-center justify-between p-3 rounded-xl border ${
         deltaAbs < 0 ? 'bg-green-500/10 border-green-500/20' :
         deltaAbs > 0 ? 'bg-red-500/10 border-red-500/20' :
@@ -86,7 +101,6 @@ export default function ComparativaMensual() {
         <DeltaChip delta={deltaAbs} pct={deltaPct} />
       </div>
 
-      {/* Por categoría */}
       {porCategoria.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Por categoría</p>

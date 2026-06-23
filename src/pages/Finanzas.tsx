@@ -13,8 +13,8 @@ const CATEGORIES = [
 export default function Finanzas() {
   const [activeTab, setActiveTab] = useState<'presupuesto'|'gastos'|'chat'>('presupuesto');
 
-  const { configuracion, ingresos, gastosDiarios, setSalario, addIngreso, updateIngreso, addGastoDiario, updateGastoDiario, deleteIngreso, deleteGastoDiario, loading } = useFinanzas();
-  const { cards, getCardExpenses, nextMonthTotal } = useApp();
+  const { configuracion, ingresos, gastosDiarios, jornadas, setSalario, addIngreso, updateIngreso, addGastoDiario, updateGastoDiario, deleteIngreso, deleteGastoDiario, loading } = useFinanzas();
+  const { cards, nextMonthTotal } = useApp();
   const { subscriptions } = useSubscriptions();
 
   // State for forms
@@ -63,12 +63,25 @@ export default function Finanzas() {
   const totalSuscripciones = subscriptions.reduce((acc, sub) => acc + sub.monto, 0);
   const totalTarjetas = Number(nextMonthTotal) || 0;
 
+  // Uber: jornadas son la fuente de verdad. No registrar Uber también en tabla ingresos.
+  const facturadoUberMes = useMemo(() =>
+    jornadas
+      .filter(j => new Date(j.fecha + 'T00:00:00').getTime() >= startOfMonth)
+      .reduce((acc, j) => acc + j.facturado, 0),
+    [jornadas, startOfMonth]);
+
+  const naftaUberMes = useMemo(() =>
+    jornadas
+      .filter(j => new Date(j.fecha + 'T00:00:00').getTime() >= startOfMonth)
+      .reduce((acc, j) => acc + j.gasto_nafta, 0),
+    [jornadas, startOfMonth]);
+
   const salarioFijo = configuracion?.salario_mensual || 0;
   const totalIngresosVariables = totalIngresosVariable;
-  const totalIngresado = salarioFijo + totalIngresosFijo + totalIngresosVariables;
+  const totalIngresado = salarioFijo + totalIngresosFijo + totalIngresosVariables + facturadoUberMes;
 
   const totalGastosDiarios = gastosDiariosDelMes.reduce((acc, g) => acc + g.monto, 0);
-  const totalGastado = totalGastosDiarios + totalTarjetas + totalSuscripciones;
+  const totalGastado = totalGastosDiarios + naftaUberMes + totalTarjetas + totalSuscripciones;
 
   const saldoDisponible = totalIngresado - totalGastado;
 

@@ -6,7 +6,8 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 const COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#f97316', '#06b6d4', '#ec4899', '#84cc16', '#a855f7'];
 
 export default function BudgetPieChart() {
-  const { gastosDiarios } = useFinanzas();
+  // jornadas es la fuente de verdad para gasto_nafta de Uber
+  const { gastosDiarios, jornadas } = useFinanzas();
   const { format } = useCurrency();
 
   const now = new Date();
@@ -14,16 +15,27 @@ export default function BudgetPieChart() {
 
   const data = useMemo(() => {
     const map: Record<string, number> = {};
+
+    // Gastos diarios normales
     gastosDiarios
       .filter(g => new Date(g.fecha).getTime() >= startOfMonth)
       .forEach(g => {
         map[g.categoria] = (map[g.categoria] || 0) + g.monto;
       });
+
+    // Nafta de jornadas Uber como categoría "Combustible"
+    const naftaMes = jornadas
+      .filter(j => new Date(j.fecha + 'T00:00:00').getTime() >= startOfMonth)
+      .reduce((a, j) => a + j.gasto_nafta, 0);
+    if (naftaMes > 0) {
+      map['Combustible'] = (map['Combustible'] || 0) + naftaMes;
+    }
+
     const total = Object.values(map).reduce((a, v) => a + v, 0);
     return Object.entries(map)
       .map(([name, value]) => ({ name, value, pct: total > 0 ? (value / total) * 100 : 0 }))
       .sort((a, b) => b.value - a.value);
-  }, [gastosDiarios, startOfMonth]);
+  }, [gastosDiarios, jornadas, startOfMonth]);
 
   const total = data.reduce((a, d) => a + d.value, 0);
 
