@@ -73,51 +73,51 @@ function ToggleBtn({
 /* ── empty form state ── */
 
 type FormState = {
-  uber_horas: string;
-  uber_facturacion: string;
+  uber_horas_objetivo: string;
+  uber_facturacion_minima: string;
   gym_horas: string;
   gym_tipo: string;
   estudio_horas: string;
   estudio_tema: string;
-  energia: string;
+  energia_nivel: string;
   notas: string;
 };
 
 function emptyForm(): FormState {
   return {
-    uber_horas: '',
-    uber_facturacion: '',
+    uber_horas_objetivo: '',
+    uber_facturacion_minima: '',
     gym_horas: '',
     gym_tipo: '',
     estudio_horas: '',
     estudio_tema: '',
-    energia: '',
+    energia_nivel: '',
     notas: '',
   };
 }
 
 function metaToForm(m: MetaDiaria): FormState {
   return {
-    uber_horas: m.uber_horas != null ? String(m.uber_horas) : '',
-    uber_facturacion: m.uber_facturacion != null ? String(m.uber_facturacion) : '',
+    uber_horas_objetivo: m.uber_horas_objetivo != null ? String(m.uber_horas_objetivo) : '',
+    uber_facturacion_minima: m.uber_facturacion_minima != null ? String(m.uber_facturacion_minima) : '',
     gym_horas: m.gym_horas != null ? String(m.gym_horas) : '',
     gym_tipo: m.gym_tipo ?? '',
     estudio_horas: m.estudio_horas != null ? String(m.estudio_horas) : '',
     estudio_tema: m.estudio_tema ?? '',
-    energia: m.energia != null ? String(m.energia) : '',
+    energia_nivel: m.energia_nivel != null ? String(m.energia_nivel) : '',
     notas: m.notas ?? '',
   };
 }
 
 function formToInput(f: FormState): Partial<MetaDiariaInput> {
   return {
-    uber_horas: f.uber_horas !== '' ? Number(f.uber_horas) : null,
-    uber_facturacion: f.uber_facturacion !== '' ? Number(f.uber_facturacion) : null,
+    uber_horas_objetivo: f.uber_horas_objetivo !== '' ? Number(f.uber_horas_objetivo) : null,
+    uber_facturacion_minima: f.uber_facturacion_minima !== '' ? Number(f.uber_facturacion_minima) : null,
     gym_horas: f.gym_horas !== '' ? Number(f.gym_horas) : null,
     gym_tipo: f.gym_tipo || null,
     estudio_horas: f.estudio_horas !== '' ? Number(f.estudio_horas) : null,
     estudio_tema: f.estudio_tema || null,
-    energia: f.energia !== '' ? Number(f.energia) : null,
+    energia_nivel: f.energia_nivel !== '' ? Number(f.energia_nivel) : null,
     notas: f.notas || null,
   };
 }
@@ -241,10 +241,10 @@ export default function MetasDiarias() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Horas">
-                <NumInput value={form.uber_horas} onChange={set('uber_horas')} placeholder="0" />
+                <NumInput value={form.uber_horas_objetivo} onChange={set('uber_horas_objetivo')} placeholder="0" />
               </Field>
               <Field label="Facturación ($)">
-                <NumInput value={form.uber_facturacion} onChange={set('uber_facturacion')} placeholder="0" step="100" />
+                <NumInput value={form.uber_facturacion_minima} onChange={set('uber_facturacion_minima')} placeholder="0" step="100" />
               </Field>
             </div>
           </div>
@@ -293,16 +293,16 @@ export default function MetasDiarias() {
               <Zap size={16} className="text-[hsl(153_100%_50%)]" />
               General
             </div>
-            <Field label={`Energía${form.energia ? ` — ${ENERGIA_LABELS[Number(form.energia)]}` : ''}`}>
+            <Field label={`Energía${form.energia_nivel ? ` — ${ENERGIA_LABELS[Number(form.energia_nivel)]}` : ''}`}>
               <div className="flex items-center gap-3">
                 <input
                   type="range" min="1" max="10"
-                  value={form.energia || 5}
-                  onChange={e => set('energia')(e.target.value)}
+                  value={form.energia_nivel || 5}
+                  onChange={e => set('energia_nivel')(e.target.value)}
                   className="flex-1 accent-[hsl(153_100%_50%)]"
                 />
                 <span className="text-lg w-8 text-center">
-                  {form.energia ? ENERGIA_LABELS[Number(form.energia)] : '—'}
+                  {form.energia_nivel ? ENERGIA_LABELS[Number(form.energia_nivel)] : '—'}
                 </span>
               </div>
             </Field>
@@ -372,9 +372,9 @@ export default function MetasDiarias() {
             <SummaryChip
               icon={Car}
               label="Uber"
-              line1={meta.uber_horas != null ? `${meta.uber_horas}h` : '—'}
-              line2={meta.uber_facturacion != null
-                ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(meta.uber_facturacion)
+              line1={meta.uber_horas_objetivo != null ? `${meta.uber_horas_objetivo}h` : '—'}
+              line2={meta.uber_facturacion_minima != null
+                ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(meta.uber_facturacion_minima)
                 : '—'}
               done={meta.uber_realizado}
             />
@@ -393,11 +393,11 @@ export default function MetasDiarias() {
               done={meta.estudio_realizado}
             />
           </div>
-          {meta.energia != null && (
+          {meta.energia_nivel != null && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Zap size={14} />
-              Energía: <span className="text-base">{ENERGIA_LABELS[meta.energia]}</span>
-              <span className="text-foreground font-semibold">{meta.energia}/10</span>
+              Energía: <span className="text-base">{ENERGIA_LABELS[meta.energia_nivel]}</span>
+              <span className="text-foreground font-semibold">{meta.energia_nivel}/10</span>
             </div>
           )}
           {meta.notas && (

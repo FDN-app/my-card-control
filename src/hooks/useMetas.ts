@@ -6,8 +6,8 @@ export interface MetaDiaria {
   id: string;
   user_id: string;
   fecha: string;
-  uber_horas: number | null;
-  uber_facturacion: number | null;
+  uber_horas_objetivo: number | null;
+  uber_facturacion_minima: number | null;
   uber_realizado: boolean;
   gym_horas: number | null;
   gym_tipo: string | null;
@@ -15,7 +15,7 @@ export interface MetaDiaria {
   estudio_horas: number | null;
   estudio_tema: string | null;
   estudio_realizado: boolean;
-  energia: number | null;
+  energia_nivel: number | null;
   notas: string | null;
   created_at: string;
   updated_at: string;
