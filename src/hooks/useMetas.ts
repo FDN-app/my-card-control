@@ -54,10 +54,21 @@ export function useMetas() {
   const createMeta = useMutation({
     mutationFn: async (input: MetaDiariaInput) => {
       console.log('[useMetas] Starting createMeta mutation');
-      console.log('[useMetas] createMeta input:', { ...input, user_id: user?.id });
+      console.log('[useMetas] hook user:', user?.id ?? 'NULL — consultando supabase.auth.getUser()');
+
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        console.error('[useMetas] getUser failed:', authError);
+        throw new Error('No authenticated user');
+      }
+      console.log('[useMetas] authUser.id:', authUser.id);
+
+      const payload = { ...input, user_id: authUser.id };
+      console.log('[useMetas] payload to upsert (check column names match table):', payload);
+
       const { data, error } = await supabase
         .from('metas_diarias')
-        .upsert([{ ...input, user_id: user!.id }], { onConflict: 'user_id,fecha' })
+        .upsert([payload], { onConflict: 'user_id,fecha' })
         .select();
       if (error) {
         console.error('[useMetas] Error Supabase createMeta:', error);
@@ -67,7 +78,6 @@ export function useMetas() {
     },
     onSuccess: (data) => {
       console.log('[useMetas] Upsert response:', data);
-      console.log('[useMetas] createMeta success, invalidating query');
       invalidate();
     },
     onError: (error: any) => {

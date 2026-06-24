@@ -164,8 +164,9 @@ export default function MetasDiarias() {
         toast.success('Meta del día creada');
       }
       setEditing(false);
-    } catch (err) {
-      console.error('[MetasDiarias] error al guardar:', err);
+    } catch (err: any) {
+      console.error('[MetasDiarias] catch:', err);
+      console.error('[MetasDiarias] catch detail — message:', err?.message, '| code:', err?.code, '| stack:', err?.stack);
       toast.error('Error al guardar');
     } finally {
       setSaving(false);
