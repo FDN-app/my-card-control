@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Car, Dumbbell, BookOpen, Zap, Check, Flame, Pencil } from 'lucide-react';
+import { Car, Dumbbell, BookOpen, Zap, Check, Flame, Pencil, UtensilsCrossed } from 'lucide-react';
 import { useMetas, type MetaDiaria, type MetaDiariaInput } from '@/hooks/useMetas';
 import { toast } from 'sonner';
 
@@ -79,6 +79,7 @@ type FormState = {
   gym_tipo: string;
   estudio_horas: string;
   estudio_tema: string;
+  dieta_calorias_objetivo: string;
   energia_nivel: string;
   notas: string;
 };
@@ -91,6 +92,7 @@ function emptyForm(): FormState {
     gym_tipo: '',
     estudio_horas: '',
     estudio_tema: '',
+    dieta_calorias_objetivo: '',
     energia_nivel: '',
     notas: '',
   };
@@ -104,6 +106,7 @@ function metaToForm(m: MetaDiaria): FormState {
     gym_tipo: m.gym_tipo ?? '',
     estudio_horas: m.estudio_horas != null ? String(m.estudio_horas) : '',
     estudio_tema: m.estudio_tema ?? '',
+    dieta_calorias_objetivo: m.dieta_calorias_objetivo != null ? String(m.dieta_calorias_objetivo) : '',
     energia_nivel: m.energia_nivel != null ? String(m.energia_nivel) : '',
     notas: m.notas ?? '',
   };
@@ -117,6 +120,7 @@ function formToInput(f: FormState): Partial<MetaDiariaInput> {
     gym_tipo: f.gym_tipo || null,
     estudio_horas: f.estudio_horas !== '' ? Number(f.estudio_horas) : null,
     estudio_tema: f.estudio_tema || null,
+    dieta_calorias_objetivo: f.dieta_calorias_objetivo !== '' ? Number(f.dieta_calorias_objetivo) : null,
     energia_nivel: f.energia_nivel !== '' ? Number(f.energia_nivel) : null,
     notas: f.notas || null,
   };
@@ -125,7 +129,7 @@ function formToInput(f: FormState): Partial<MetaDiariaInput> {
 /* ── main component ── */
 
 export default function MetasDiarias() {
-  const { getMeta, createMeta, updateMeta, toggleRealizado, isLoading } = useMetas();
+  const { getMeta, createMeta, updateMeta, toggleRealizado } = useMetas();
   const meta = getMeta(hoy);
 
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -145,11 +149,9 @@ export default function MetasDiarias() {
   const set = (k: keyof FormState) => (v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
   const handleSave = async () => {
-    console.log('[MetasDiarias] handleSave fired', { form, meta });
     setSaving(true);
     try {
       const input = formToInput(form);
-      console.log('[MetasDiarias] input to save:', input);
       if (meta) {
         await updateMeta({ id: meta.id, ...input });
         toast.success('Meta actualizada');
@@ -159,21 +161,21 @@ export default function MetasDiarias() {
           uber_realizado: false,
           gym_realizado: false,
           estudio_realizado: false,
+          dieta_realizado: false,
           ...input,
         } as MetaDiariaInput);
         toast.success('Meta del día creada');
       }
       setEditing(false);
     } catch (err: any) {
-      console.error('[MetasDiarias] catch:', err);
-      console.error('[MetasDiarias] catch detail — message:', err?.message, '| code:', err?.code, '| stack:', err?.stack);
+      console.error('[MetasDiarias] handleSave error:', err);
       toast.error('Error al guardar');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggle = async (campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado') => {
+  const handleToggle = async (campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado' | 'dieta_realizado') => {
     if (!meta) return;
     try {
       await toggleRealizado({ id: meta.id, campo, valor: !meta[campo] });
@@ -224,6 +226,12 @@ export default function MetasDiarias() {
             onToggle={() => handleToggle('estudio_realizado')}
             label="Estudio"
             icon={BookOpen}
+          />
+          <ToggleBtn
+            done={meta.dieta_realizado}
+            onToggle={() => handleToggle('dieta_realizado')}
+            label="Dieta"
+            icon={UtensilsCrossed}
           />
         </div>
       )}
@@ -287,6 +295,19 @@ export default function MetasDiarias() {
 
           <div className="border-t border-border/30" />
 
+          {/* Dieta */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <UtensilsCrossed size={16} className="text-[hsl(153_100%_50%)]" />
+              Dieta
+            </div>
+            <Field label="Calorías objetivo">
+              <NumInput value={form.dieta_calorias_objetivo} onChange={set('dieta_calorias_objetivo')} placeholder="2000" step="50" />
+            </Field>
+          </div>
+
+          <div className="border-t border-border/30" />
+
           {/* Energía + Notas */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-foreground">
@@ -321,10 +342,7 @@ export default function MetasDiarias() {
           <div className="flex gap-3 pt-1" style={{ position: 'relative', zIndex: 50 }}>
             <button
               type="button"
-              onClick={() => {
-                console.log('test button');
-                handleSave();
-              }}
+              onClick={handleSave}
               disabled={saving}
               style={{
                 flex: 1,
@@ -368,7 +386,7 @@ export default function MetasDiarias() {
         <div className="rounded-2xl border border-border/40 p-5 space-y-4"
           style={{ background: 'hsl(215 55% 5%)' }}>
           <p className="text-xs uppercase tracking-widest text-muted-foreground">Resumen de hoy</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <SummaryChip
               icon={Car}
               label="Uber"
@@ -391,6 +409,13 @@ export default function MetasDiarias() {
               line1={meta.estudio_horas != null ? `${meta.estudio_horas}h` : '—'}
               line2={meta.estudio_tema || '—'}
               done={meta.estudio_realizado}
+            />
+            <SummaryChip
+              icon={UtensilsCrossed}
+              label="Dieta"
+              line1={meta.dieta_calorias_objetivo != null ? `${meta.dieta_calorias_objetivo} kcal` : '—'}
+              line2=""
+              done={meta.dieta_realizado}
             />
           </div>
           {meta.energia_nivel != null && (

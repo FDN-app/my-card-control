@@ -18,6 +18,8 @@ import Finanzas from "./pages/Finanzas";
 import SettingsPage from "./pages/Settings";
 import MetasAhorro from "./pages/MetasAhorro";
 import MetasDiariasPage from "./pages/MetasDiariasPage";
+import PlanSemanalPage from "./pages/PlanSemanalPage";
+import ObjetivosMensualesPage from "./pages/ObjetivosMensualesPage";
 import Conductor from "./pages/Conductor";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -49,6 +51,8 @@ const App = () => (
                     <Route path="/finanzas" element={<Finanzas />} />
                     <Route path="/metas" element={<MetasAhorro />} />
                     <Route path="/metas-diarias" element={<MetasDiariasPage />} />
+                    <Route path="/plan-semanal" element={<PlanSemanalPage />} />
+                    <Route path="/objetivos" element={<ObjetivosMensualesPage />} />
                     <Route path="/conductor" element={<Conductor />} />
                     <Route path="/configuracion" element={<SettingsPage />} />
                   </Route>

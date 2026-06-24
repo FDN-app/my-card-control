@@ -15,6 +15,8 @@ export interface MetaDiaria {
   estudio_horas: number | null;
   estudio_tema: string | null;
   estudio_realizado: boolean;
+  dieta_calorias_objetivo: number | null;
+  dieta_realizado: boolean;
   energia_nivel: number | null;
   notas: string | null;
   created_at: string;
@@ -35,11 +37,7 @@ export function useMetas() {
         .select('*')
         .eq('user_id', user!.id)
         .order('fecha', { ascending: false });
-      if (error) {
-        console.error('[useMetas] Error Supabase query:', error);
-        throw error;
-      }
-      console.log('[useMetas] query ok, rows:', data?.length);
+      if (error) throw error;
       return data as MetaDiaria[];
     },
     enabled: !!user,
@@ -53,54 +51,28 @@ export function useMetas() {
 
   const createMeta = useMutation({
     mutationFn: async (input: MetaDiariaInput) => {
-      console.log('[useMetas] Starting createMeta mutation');
-      console.log('[useMetas] hook user:', user?.id ?? 'NULL — consultando supabase.auth.getUser()');
-
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser) {
-        console.error('[useMetas] getUser failed:', authError);
-        throw new Error('No authenticated user');
-      }
-      console.log('[useMetas] authUser.id:', authUser.id);
-
-      const payload = { ...input, user_id: authUser.id };
-      console.log('[useMetas] payload to upsert (check column names match table):', payload);
+      if (authError || !authUser) throw new Error('No authenticated user');
 
       const { data, error } = await supabase
         .from('metas_diarias')
-        .upsert([payload], { onConflict: 'user_id,fecha' })
+        .upsert([{ ...input, user_id: authUser.id }], { onConflict: 'user_id,fecha' })
         .select();
-      if (error) {
-        console.error('[useMetas] Error Supabase createMeta:', error);
-        throw error;
-      }
+      if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      console.log('[useMetas] Upsert response:', data);
-      invalidate();
-    },
-    onError: (error: any) => {
-      console.error('[useMetas] Mutation error:', error.message, error.code);
-    },
+    onSuccess: invalidate,
   });
 
   const updateMeta = useMutation({
     mutationFn: async ({ id, ...input }: Partial<MetaDiariaInput> & { id: string }) => {
-      console.log('[useMetas] updateMeta id:', id, 'input:', input);
       const { error } = await supabase
         .from('metas_diarias')
         .update({ ...input, updated_at: new Date().toISOString() })
         .eq('id', id);
-      if (error) {
-        console.error('[useMetas] Error Supabase updateMeta:', error);
-        throw error;
-      }
+      if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (err) => {
-      console.error('[useMetas] updateMeta onError:', err);
-    },
   });
 
   const toggleRealizado = useMutation({
@@ -108,34 +80,22 @@ export function useMetas() {
       id,
       campo,
       valor,
-    }: { id: string; campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado'; valor: boolean }) => {
+    }: { id: string; campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado' | 'dieta_realizado'; valor: boolean }) => {
       const { error } = await supabase
         .from('metas_diarias')
         .update({ [campo]: valor, updated_at: new Date().toISOString() })
         .eq('id', id);
-      if (error) {
-        console.error('[useMetas] Error Supabase toggleRealizado:', error);
-        throw error;
-      }
+      if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (err) => {
-      console.error('[useMetas] toggleRealizado onError:', err);
-    },
   });
 
   const deleteMeta = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('metas_diarias').delete().eq('id', id);
-      if (error) {
-        console.error('[useMetas] Error Supabase deleteMeta:', error);
-        throw error;
-      }
+      if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (err) => {
-      console.error('[useMetas] deleteMeta onError:', err);
-    },
   });
 
   return {
