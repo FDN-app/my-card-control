@@ -1,7 +1,7 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CreditCard, PlusCircle, FileUp,
-  Settings, TrendingDown, Bell, LogOut, Wallet, Target, Car,
+  Settings, TrendingDown, Bell, LogOut, Wallet, Target, Car, CalendarCheck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -15,7 +15,8 @@ const SIDEBAR_ITEMS = [
   { icon: FileUp,          label: 'Importar',       path: '/gastos/importar' },
   { icon: Bell,            label: 'Suscripciones',  path: '/suscripciones' },
   { icon: Target,          label: 'Metas de Ahorro', path: '/metas' },
-  { icon: Car,             label: 'Conductor',       path: '/conductor' },
+  { icon: Car,             label: 'Conductor',        path: '/conductor' },
+  { icon: CalendarCheck,  label: 'Metas Diarias',    path: '/metas-diarias' },
 ];
 
 // 5 items for mobile — center item is the CTA
@@ -23,8 +24,8 @@ const BOTTOM_ITEMS = [
   { icon: LayoutDashboard, label: 'Inicio',    path: '/',              center: false },
   { icon: CreditCard,      label: 'Pagos',     path: '/tarjetas',      center: false },
   { icon: PlusCircle,      label: 'Nuevo',     path: '/gastos/nuevo',  center: true  },
-  { icon: Wallet,          label: 'Finanzas',  path: '/finanzas',      center: false },
-  { icon: Bell,            label: 'Subs',      path: '/suscripciones', center: false },
+  { icon: Wallet,          label: 'Finanzas',  path: '/finanzas',       center: false },
+  { icon: CalendarCheck,  label: 'Metas',     path: '/metas-diarias',  center: false },
 ];
 
 /* ── Sidebar item ────────────────────────────────────────── */
