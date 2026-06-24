@@ -35,10 +35,15 @@ export function useMetas() {
         .select('*')
         .eq('user_id', user!.id)
         .order('fecha', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error('[useMetas] Error Supabase query:', error);
+        throw error;
+      }
+      console.log('[useMetas] query ok, rows:', data?.length);
       return data as MetaDiaria[];
     },
     enabled: !!user,
+    retry: 1,
   });
 
   const invalidate = () =>
@@ -48,29 +53,44 @@ export function useMetas() {
 
   const createMeta = useMutation({
     mutationFn: async (input: MetaDiariaInput) => {
+      console.log('[useMetas] Starting createMeta mutation');
+      console.log('[useMetas] createMeta input:', { ...input, user_id: user?.id });
       const { data, error } = await supabase
         .from('metas_diarias')
-        .insert([{ ...input, user_id: user!.id }])
-        .select()
-        .single();
-      if (error) throw error;
-      return data as MetaDiaria;
+        .upsert([{ ...input, user_id: user!.id }], { onConflict: 'user_id,fecha' })
+        .select();
+      if (error) {
+        console.error('[useMetas] Error Supabase createMeta:', error);
+        throw error;
+      }
+      return data;
     },
-    onSuccess: invalidate,
+    onSuccess: (data) => {
+      console.log('[useMetas] Upsert response:', data);
+      console.log('[useMetas] createMeta success, invalidating query');
+      invalidate();
+    },
+    onError: (error: any) => {
+      console.error('[useMetas] Mutation error:', error.message, error.code);
+    },
   });
 
   const updateMeta = useMutation({
     mutationFn: async ({ id, ...input }: Partial<MetaDiariaInput> & { id: string }) => {
-      const { data, error } = await supabase
+      console.log('[useMetas] updateMeta id:', id, 'input:', input);
+      const { error } = await supabase
         .from('metas_diarias')
         .update({ ...input, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as MetaDiaria;
+        .eq('id', id);
+      if (error) {
+        console.error('[useMetas] Error Supabase updateMeta:', error);
+        throw error;
+      }
     },
     onSuccess: invalidate,
+    onError: (err) => {
+      console.error('[useMetas] updateMeta onError:', err);
+    },
   });
 
   const toggleRealizado = useMutation({
@@ -83,17 +103,29 @@ export function useMetas() {
         .from('metas_diarias')
         .update({ [campo]: valor, updated_at: new Date().toISOString() })
         .eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error('[useMetas] Error Supabase toggleRealizado:', error);
+        throw error;
+      }
     },
     onSuccess: invalidate,
+    onError: (err) => {
+      console.error('[useMetas] toggleRealizado onError:', err);
+    },
   });
 
   const deleteMeta = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('metas_diarias').delete().eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error('[useMetas] Error Supabase deleteMeta:', error);
+        throw error;
+      }
     },
     onSuccess: invalidate,
+    onError: (err) => {
+      console.error('[useMetas] deleteMeta onError:', err);
+    },
   });
 
   return {
