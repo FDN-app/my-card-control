@@ -145,18 +145,27 @@ export default function MetasDiarias() {
   const set = (k: keyof FormState) => (v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
   const handleSave = async () => {
+    console.log('[MetasDiarias] handleSave fired', { form, meta });
     setSaving(true);
     try {
       const input = formToInput(form);
+      console.log('[MetasDiarias] input to save:', input);
       if (meta) {
         await updateMeta({ id: meta.id, ...input });
         toast.success('Meta actualizada');
       } else {
-        await createMeta({ fecha: hoy, uber_realizado: false, gym_realizado: false, estudio_realizado: false, ...input } as MetaDiariaInput);
+        await createMeta({
+          fecha: hoy,
+          uber_realizado: false,
+          gym_realizado: false,
+          estudio_realizado: false,
+          ...input,
+        } as MetaDiariaInput);
         toast.success('Meta del día creada');
       }
       setEditing(false);
-    } catch {
+    } catch (err) {
+      console.error('[MetasDiarias] error al guardar:', err);
       toast.error('Error al guardar');
     } finally {
       setSaving(false);
@@ -224,7 +233,7 @@ export default function MetasDiarias() {
           style={{ background: 'hsl(215 55% 5%)', boxShadow: '0 4px 24px hsl(0 0% 0% / 0.3)' }}>
 
           {/* Uber */}
-          <section className="space-y-3">
+          <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-foreground">
               <Car size={16} className="text-[hsl(153_100%_50%)]" />
               Uber
@@ -237,12 +246,12 @@ export default function MetasDiarias() {
                 <NumInput value={form.uber_facturacion} onChange={set('uber_facturacion')} placeholder="0" step="100" />
               </Field>
             </div>
-          </section>
+          </div>
 
           <div className="border-t border-border/30" />
 
           {/* Gym */}
-          <section className="space-y-3">
+          <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-foreground">
               <Dumbbell size={16} className="text-[hsl(153_100%_50%)]" />
               Gym
@@ -255,12 +264,12 @@ export default function MetasDiarias() {
                 <TextInput value={form.gym_tipo} onChange={set('gym_tipo')} placeholder="Ej: Pecho, Cardio..." />
               </Field>
             </div>
-          </section>
+          </div>
 
           <div className="border-t border-border/30" />
 
           {/* Estudio */}
-          <section className="space-y-3">
+          <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-foreground">
               <BookOpen size={16} className="text-[hsl(153_100%_50%)]" />
               Estudio
@@ -273,12 +282,12 @@ export default function MetasDiarias() {
                 <TextInput value={form.estudio_tema} onChange={set('estudio_tema')} placeholder="Ej: React, Inglés..." />
               </Field>
             </div>
-          </section>
+          </div>
 
           <div className="border-t border-border/30" />
 
           {/* Energía + Notas */}
-          <section className="space-y-3">
+          <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-foreground">
               <Zap size={16} className="text-[hsl(153_100%_50%)]" />
               General
@@ -305,19 +314,36 @@ export default function MetasDiarias() {
                 className="w-full bg-secondary/30 border border-border/40 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[hsl(153_100%_50%/0.5)] focus:bg-secondary/50 transition-colors resize-none"
               />
             </Field>
-          </section>
+          </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-3 pt-1" style={{ position: 'relative', zIndex: 50 }}>
             <button
-              onClick={handleSave}
-              disabled={saving || isLoading}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all"
+              type="button"
+              onClick={() => {
+                console.log('test button');
+                handleSave();
+              }}
+              disabled={saving}
               style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '0.625rem 1rem',
+                borderRadius: '0.75rem',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.5 : 1,
                 background: 'hsl(153 100% 50% / 0.12)',
                 border: '1px solid hsl(153 100% 50% / 0.4)',
                 color: 'hsl(153 100% 50%)',
                 boxShadow: '0 0 12px hsl(153 100% 50% / 0.15)',
+                position: 'relative',
+                zIndex: 51,
+                pointerEvents: saving ? 'none' : 'auto',
               }}
             >
               <Flame size={15} />
@@ -325,6 +351,7 @@ export default function MetasDiarias() {
             </button>
             {meta && (
               <button
+                type="button"
                 onClick={() => { setForm(metaToForm(meta)); setEditing(false); }}
                 className="px-4 py-2.5 rounded-xl border border-border/40 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
