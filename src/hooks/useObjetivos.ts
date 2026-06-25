@@ -5,7 +5,8 @@ import { useAuth } from '@/lib/AuthContext';
 export interface ObjetivoMensual {
   id: string;
   user_id: string;
-  mes: string; // 'YYYY-MM'
+  mes: number;   // 1-12
+  anio: number;  // e.g. 2026
   apps_objetivo: number | null;
   apps_completadas: number;
   descripcion: string | null;
@@ -15,20 +16,25 @@ export interface ObjetivoMensual {
 
 export type ObjetivoInput = Omit<ObjetivoMensual, 'id' | 'user_id' | 'created_at' | 'updated_at'>;
 
-const mesActual = () => new Date().toISOString().slice(0, 7);
+const getMesAnioActual = () => {
+  const now = new Date();
+  return { mes: now.getMonth() + 1, anio: now.getFullYear() };
+};
 
 export function useObjetivos() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { mes, anio } = getMesAnioActual();
 
   const { data: objetivo, isLoading } = useQuery({
-    queryKey: ['objetivos_mensuales', user?.id],
+    queryKey: ['objetivos_mensuales', user?.id, mes, anio],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('objetivos_mensuales')
         .select('*')
         .eq('user_id', user!.id)
-        .eq('mes', mesActual())
+        .eq('mes', mes)
+        .eq('anio', anio)
         .maybeSingle();
       if (error) throw error;
       return data as ObjetivoMensual | null;
@@ -47,30 +53,10 @@ export function useObjetivos() {
 
       const { data, error } = await supabase
         .from('objetivos_mensuales')
-        .upsert([{ mes: mesActual(), apps_completadas: 0, ...input, user_id: authUser.id }], { onConflict: 'user_id,mes' })
-        .select();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: invalidate,
-  });
-
-  const incrementarApp = useMutation({
-    mutationFn: async () => {
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser) throw new Error('No authenticated user');
-
-      const nuevasApps = (objetivo?.apps_completadas ?? 0) + 1;
-
-      const { data, error } = await supabase
-        .from('objetivos_mensuales')
-        .upsert([{
-          user_id: authUser.id,
-          mes: mesActual(),
-          apps_completadas: nuevasApps,
-          apps_objetivo: objetivo?.apps_objetivo ?? null,
-          descripcion: objetivo?.descripcion ?? null,
-        }], { onConflict: 'user_id,mes' })
+        .upsert(
+          [{ mes, anio, apps_completadas: 0, ...input, user_id: authUser.id }],
+          { onConflict: 'user_id,mes,anio' },
+        )
         .select();
       if (error) throw error;
       return data;
@@ -82,7 +68,5 @@ export function useObjetivos() {
     objetivo,
     isLoading,
     upsertObjetivo: upsertObjetivo.mutateAsync,
-    incrementarApp: incrementarApp.mutateAsync,
-    isPendingIncrement: incrementarApp.isPending,
   };
 }

@@ -17,6 +17,8 @@ export interface MetaDiaria {
   estudio_realizado: boolean;
   dieta_calorias_objetivo: number | null;
   dieta_realizado: boolean;
+  apps_horas: number | null;
+  apps_realizado: boolean;
   energia_nivel: number | null;
   notas: string | null;
   created_at: string;
@@ -80,7 +82,7 @@ export function useMetas() {
       id,
       campo,
       valor,
-    }: { id: string; campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado' | 'dieta_realizado'; valor: boolean }) => {
+    }: { id: string; campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado' | 'dieta_realizado' | 'apps_realizado'; valor: boolean }) => {
       const { error } = await supabase
         .from('metas_diarias')
         .update({ [campo]: valor, updated_at: new Date().toISOString() })

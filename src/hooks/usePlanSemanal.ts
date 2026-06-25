@@ -14,6 +14,7 @@ export interface DiaSemana {
   estudio_horas: number | null;
   estudio_tema: string | null;
   dieta_calorias_objetivo: number | null;
+  apps_horas: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Car, Dumbbell, BookOpen, Zap, Check, Flame, Pencil, UtensilsCrossed } from 'lucide-react';
+import { Car, Dumbbell, BookOpen, Zap, Check, Flame, Pencil, UtensilsCrossed, Code2 } from 'lucide-react';
 import { useMetas, type MetaDiaria, type MetaDiariaInput } from '@/hooks/useMetas';
 import { toast } from 'sonner';
 
@@ -80,6 +80,7 @@ type FormState = {
   estudio_horas: string;
   estudio_tema: string;
   dieta_calorias_objetivo: string;
+  apps_horas: string;
   energia_nivel: string;
   notas: string;
 };
@@ -93,6 +94,7 @@ function emptyForm(): FormState {
     estudio_horas: '',
     estudio_tema: '',
     dieta_calorias_objetivo: '',
+    apps_horas: '',
     energia_nivel: '',
     notas: '',
   };
@@ -107,6 +109,7 @@ function metaToForm(m: MetaDiaria): FormState {
     estudio_horas: m.estudio_horas != null ? String(m.estudio_horas) : '',
     estudio_tema: m.estudio_tema ?? '',
     dieta_calorias_objetivo: m.dieta_calorias_objetivo != null ? String(m.dieta_calorias_objetivo) : '',
+    apps_horas: m.apps_horas != null ? String(m.apps_horas) : '',
     energia_nivel: m.energia_nivel != null ? String(m.energia_nivel) : '',
     notas: m.notas ?? '',
   };
@@ -121,6 +124,7 @@ function formToInput(f: FormState): Partial<MetaDiariaInput> {
     estudio_horas: f.estudio_horas !== '' ? Number(f.estudio_horas) : null,
     estudio_tema: f.estudio_tema || null,
     dieta_calorias_objetivo: f.dieta_calorias_objetivo !== '' ? Number(f.dieta_calorias_objetivo) : null,
+    apps_horas: f.apps_horas !== '' ? Number(f.apps_horas) : null,
     energia_nivel: f.energia_nivel !== '' ? Number(f.energia_nivel) : null,
     notas: f.notas || null,
   };
@@ -162,6 +166,7 @@ export default function MetasDiarias() {
           gym_realizado: false,
           estudio_realizado: false,
           dieta_realizado: false,
+          apps_realizado: false,
           ...input,
         } as MetaDiariaInput);
         toast.success('Meta del día creada');
@@ -175,7 +180,7 @@ export default function MetasDiarias() {
     }
   };
 
-  const handleToggle = async (campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado' | 'dieta_realizado') => {
+  const handleToggle = async (campo: 'uber_realizado' | 'gym_realizado' | 'estudio_realizado' | 'dieta_realizado' | 'apps_realizado') => {
     if (!meta) return;
     try {
       await toggleRealizado({ id: meta.id, campo, valor: !meta[campo] });
@@ -232,6 +237,12 @@ export default function MetasDiarias() {
             onToggle={() => handleToggle('dieta_realizado')}
             label="Dieta"
             icon={UtensilsCrossed}
+          />
+          <ToggleBtn
+            done={meta.apps_realizado}
+            onToggle={() => handleToggle('apps_realizado')}
+            label="Apps"
+            icon={Code2}
           />
         </div>
       )}
@@ -303,6 +314,19 @@ export default function MetasDiarias() {
             </div>
             <Field label="Calorías objetivo">
               <NumInput value={form.dieta_calorias_objetivo} onChange={set('dieta_calorias_objetivo')} placeholder="2000" step="50" />
+            </Field>
+          </div>
+
+          <div className="border-t border-border/30" />
+
+          {/* Programar apps */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <Code2 size={16} className="text-[hsl(153_100%_50%)]" />
+              Programar apps
+            </div>
+            <Field label="Horas">
+              <NumInput value={form.apps_horas} onChange={set('apps_horas')} placeholder="0" />
             </Field>
           </div>
 
@@ -386,7 +410,7 @@ export default function MetasDiarias() {
         <div className="rounded-2xl border border-border/40 p-5 space-y-4"
           style={{ background: 'hsl(215 55% 5%)' }}>
           <p className="text-xs uppercase tracking-widest text-muted-foreground">Resumen de hoy</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <SummaryChip
               icon={Car}
               label="Uber"
@@ -416,6 +440,13 @@ export default function MetasDiarias() {
               line1={meta.dieta_calorias_objetivo != null ? `${meta.dieta_calorias_objetivo} kcal` : '—'}
               line2=""
               done={meta.dieta_realizado}
+            />
+            <SummaryChip
+              icon={Code2}
+              label="Apps"
+              line1={meta.apps_horas != null ? `${meta.apps_horas}h` : '—'}
+              line2=""
+              done={meta.apps_realizado}
             />
           </div>
           {meta.energia_nivel != null && (

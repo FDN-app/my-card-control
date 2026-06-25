@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Car, Dumbbell, BookOpen, UtensilsCrossed, Check, Flame, ChevronDown, ChevronUp } from 'lucide-react';
+import { Car, Dumbbell, BookOpen, UtensilsCrossed, Check, Flame, ChevronDown, ChevronUp, Code2 } from 'lucide-react';
 import { usePlanSemanal, type DiaSemanaInput } from '@/hooks/usePlanSemanal';
 import { toast } from 'sonner';
 
@@ -54,6 +54,7 @@ type DiaForm = {
   estudio_horas: string;
   estudio_tema: string;
   dieta_calorias_objetivo: string;
+  apps_horas: string;
 };
 
 function emptyDia(): DiaForm {
@@ -66,6 +67,7 @@ function emptyDia(): DiaForm {
     estudio_horas: '',
     estudio_tema: '',
     dieta_calorias_objetivo: '',
+    apps_horas: '',
   };
 }
 
@@ -79,6 +81,7 @@ function diaToForm(d: DiaSemanaInput): DiaForm {
     estudio_horas: d.estudio_horas != null ? String(d.estudio_horas) : '',
     estudio_tema: d.estudio_tema ?? '',
     dieta_calorias_objetivo: d.dieta_calorias_objetivo != null ? String(d.dieta_calorias_objetivo) : '',
+    apps_horas: d.apps_horas != null ? String(d.apps_horas) : '',
   };
 }
 
@@ -93,6 +96,7 @@ function formToInput(dia_semana: number, f: DiaForm): DiaSemanaInput {
     estudio_horas: f.estudio_horas !== '' ? Number(f.estudio_horas) : null,
     estudio_tema: f.estudio_tema || null,
     dieta_calorias_objetivo: f.dieta_calorias_objetivo !== '' ? Number(f.dieta_calorias_objetivo) : null,
+    apps_horas: f.apps_horas !== '' ? Number(f.apps_horas) : null,
   };
 }
 
@@ -126,7 +130,8 @@ function DiaCard({ dia_semana, existing, upsertDia }: {
     existing.uber_horas != null ||
     existing.gym_activo ||
     existing.estudio_horas != null ||
-    existing.dieta_calorias_objetivo != null
+    existing.dieta_calorias_objetivo != null ||
+    existing.apps_horas != null
   );
 
   return (
@@ -177,6 +182,11 @@ function DiaCard({ dia_semana, existing, upsertDia }: {
                 {existing?.dieta_calorias_objetivo != null && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[hsl(153_100%_50%/0.08)] text-[hsl(153_100%_50%)] border border-[hsl(153_100%_50%/0.2)]">
                     <UtensilsCrossed size={9} className="inline mr-0.5" />{existing.dieta_calorias_objetivo}kcal
+                  </span>
+                )}
+                {existing?.apps_horas != null && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[hsl(153_100%_50%/0.08)] text-[hsl(153_100%_50%)] border border-[hsl(153_100%_50%/0.2)]">
+                    <Code2 size={9} className="inline mr-0.5" />{existing.apps_horas}h
                   </span>
                 )}
               </div>
@@ -254,6 +264,16 @@ function DiaCard({ dia_semana, existing, upsertDia }: {
             </p>
             <Field label="Calorías objetivo">
               <NumInput value={form.dieta_calorias_objetivo} onChange={set('dieta_calorias_objetivo')} placeholder="2000" step="50" />
+            </Field>
+          </div>
+
+          {/* Programar apps */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Code2 size={13} className="text-[hsl(153_100%_50%)]" /> Programar apps
+            </p>
+            <Field label="Horas">
+              <NumInput value={form.apps_horas} onChange={set('apps_horas')} placeholder="0" />
             </Field>
           </div>
 
