@@ -1,8 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CreditCard, PlusCircle, FileUp,
   Settings, TrendingDown, Bell, LogOut, Wallet, Target, Car, CalendarCheck,
-  CalendarDays, Trophy,
+  CalendarDays, Trophy, MoreHorizontal, X,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -27,8 +28,19 @@ const BOTTOM_ITEMS = [
   { icon: LayoutDashboard, label: 'Inicio',    path: '/',              center: false },
   { icon: CreditCard,      label: 'Pagos',     path: '/tarjetas',      center: false },
   { icon: PlusCircle,      label: 'Nuevo',     path: '/gastos/nuevo',  center: true  },
-  { icon: Wallet,          label: 'Finanzas',  path: '/finanzas',       center: false },
-  { icon: CalendarCheck,  label: 'Metas',     path: '/metas-diarias',  center: false },
+  { icon: Wallet,          label: 'Finanzas',  path: '/finanzas',      center: false },
+  { icon: CalendarCheck,  label: 'Metas',     path: '/metas-diarias', center: false },
+];
+
+// Items accessible via the "Más" drawer (not in BOTTOM_ITEMS)
+const MORE_ITEMS = [
+  { icon: CalendarDays, label: 'Plan Semanal',    path: '/plan-semanal' },
+  { icon: Trophy,       label: 'Objetivos',       path: '/objetivos' },
+  { icon: Car,          label: 'Conductor',       path: '/conductor' },
+  { icon: Target,       label: 'Metas de Ahorro', path: '/metas' },
+  { icon: Bell,         label: 'Suscripciones',   path: '/suscripciones' },
+  { icon: FileUp,       label: 'Importar',        path: '/gastos/importar' },
+  { icon: Settings,     label: 'Configuración',   path: '/configuracion' },
 ];
 
 /* ── Sidebar item ────────────────────────────────────────── */
@@ -51,7 +63,6 @@ function SidebarItem({
         boxShadow: '0 0 12px hsl(153 100% 50% / 0.15), inset 0 0 8px hsl(153 100% 50% / 0.05)',
       } : undefined}
     >
-      {/* Active left accent bar */}
       {active && (
         <span
           className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full"
@@ -65,7 +76,6 @@ function SidebarItem({
         style={active ? { filter: 'drop-shadow(0 0 4px hsl(153 100% 50% / 0.7))' } : undefined}
       />
       <span className="font-medium text-sm">{label}</span>
-      {/* Hover shimmer */}
       <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
         style={{ background: 'linear-gradient(90deg, transparent, hsl(153 100% 50% / 0.03), transparent)' }} />
     </button>
@@ -115,7 +125,6 @@ function BottomItem({
       className="relative flex flex-col items-center gap-1 px-2 py-1 interactive-press group"
       aria-label={label}
     >
-      {/* Active indicator dot */}
       {active && (
         <span
           className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
@@ -140,15 +149,122 @@ function BottomItem({
   );
 }
 
+/* ── More drawer (bottom sheet) ──────────────────────────── */
+
+function MoreSheet({
+  open, onClose, currentPath, onNavigate,
+}: {
+  open: boolean;
+  onClose: () => void;
+  currentPath: string;
+  onNavigate: (path: string) => void;
+}) {
+  const isActive = (path: string) =>
+    path === '/' ? currentPath === '/' : currentPath.startsWith(path);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={`
+          fixed inset-0 z-40 transition-opacity duration-300
+          ${open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
+        `}
+        style={{ background: 'hsl(0 0% 0% / 0.65)', backdropFilter: 'blur(4px)' }}
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div
+        className={`
+          fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl
+          transition-transform duration-300 ease-out
+          ${open ? 'translate-y-0' : 'translate-y-full'}
+        `}
+        style={{
+          background: 'hsl(215 60% 4% / 0.98)',
+          backdropFilter: 'blur(24px)',
+          borderTop: '1px solid hsl(153 100% 50% / 0.2)',
+          boxShadow: '0 -8px 40px hsl(0 0% 0% / 0.6), 0 -1px 0 hsl(153 100% 50% / 0.15)',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ background: 'hsl(215 20% 30%)' }} />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3">
+          <span className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: 'hsl(215 20% 45%)' }}>
+            Más secciones
+          </span>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'hsl(215 20% 50%)' }}
+            aria-label="Cerrar"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Grid */}
+        <div className="grid grid-cols-3 gap-2.5 px-4 pt-1 pb-2">
+          {MORE_ITEMS.map(({ icon: Icon, label, path }) => {
+            const active = isActive(path);
+            return (
+              <button
+                key={path}
+                onClick={() => onNavigate(path)}
+                className="flex flex-col items-center gap-2.5 p-3.5 rounded-xl transition-all active:scale-95"
+                style={{
+                  background: active ? 'hsl(153 100% 50% / 0.1)' : 'hsl(215 55% 7%)',
+                  border: `1px solid ${active ? 'hsl(153 100% 50% / 0.35)' : 'hsl(215 45% 12%)'}`,
+                  boxShadow: active ? '0 0 12px hsl(153 100% 50% / 0.12)' : undefined,
+                }}
+              >
+                <Icon
+                  size={22}
+                  strokeWidth={active ? 2.5 : 2}
+                  style={{
+                    color: active ? 'hsl(153 100% 50%)' : 'hsl(215 20% 60%)',
+                    filter: active ? 'drop-shadow(0 0 5px hsl(153 100% 50% / 0.8))' : undefined,
+                  }}
+                />
+                <span
+                  className="text-[11px] font-medium text-center leading-tight"
+                  style={{ color: active ? 'hsl(153 100% 50%)' : 'hsl(215 20% 55%)' }}
+                >
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ── AppLayout ───────────────────────────────────────────── */
 
 export default function AppLayout() {
   const location  = useLocation();
   const navigate  = useNavigate();
   const { user, signOut } = useAuth();
+  const [showMore, setShowMore] = useState(false);
+
+  // Close drawer on route change
+  useEffect(() => {
+    setShowMore(false);
+  }, [location.pathname]);
 
   const isActive = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
+  const moreIsActive = MORE_ITEMS.some(i => isActive(i.path));
 
   const handleSignOut = async () => {
     await signOut();
@@ -301,7 +417,26 @@ export default function AppLayout() {
             onClick={() => navigate(item.path)}
           />
         ))}
+
+        {/* Más button */}
+        <BottomItem
+          icon={MoreHorizontal}
+          label="Más"
+          active={showMore || moreIsActive}
+          center={false}
+          onClick={() => setShowMore(prev => !prev)}
+        />
       </nav>
+
+      {/* ════════════════════════════════════════════════
+          MORE SHEET — mobile drawer
+          ════════════════════════════════════════════════ */}
+      <MoreSheet
+        open={showMore}
+        onClose={() => setShowMore(false)}
+        currentPath={location.pathname}
+        onNavigate={(path) => navigate(path)}
+      />
     </div>
   );
 }
