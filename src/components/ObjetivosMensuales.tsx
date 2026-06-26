@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Trophy, Flame, Code2, Plus, Pencil, Trash2, ChevronDown,
 } from 'lucide-react';
@@ -171,8 +172,8 @@ function ProyectoModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
         className="relative w-full max-w-md rounded-2xl border p-5 space-y-4"
@@ -249,7 +250,8 @@ function ProyectoModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

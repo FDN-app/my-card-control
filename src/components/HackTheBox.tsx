@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Terminal, Monitor, Plus, Pencil, Trash2, ExternalLink,
   Check, X, Target, ChevronRight, Flag,
@@ -227,11 +228,11 @@ function MaquinaModal({
 }) {
   if (!open) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/70"
+        className="fixed inset-0 z-[200] bg-black/70"
         style={{ backdropFilter: 'blur(4px)' }}
         onClick={onClose}
       />
@@ -239,7 +240,7 @@ function MaquinaModal({
       {/* Modal */}
       <div
         className="fixed inset-x-0 bottom-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
-          z-50 w-full md:max-w-lg rounded-t-2xl md:rounded-2xl overflow-hidden"
+          z-[201] w-full md:max-w-lg rounded-t-2xl md:rounded-2xl overflow-hidden"
         style={{
           background: 'hsl(215 60% 4% / 0.98)',
           backdropFilter: 'blur(24px)',
@@ -385,7 +386,8 @@ function MaquinaModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
