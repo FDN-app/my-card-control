@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '@/lib/store';
+import { getHoyArgentina } from '@/lib/dateAR';
 import { formatCurrency, CATEGORIES } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +28,7 @@ export default function NewExpense() {
     installmentAmount: '',
     interestRate: '',
     current: '1',
-    date: new Date().toISOString().slice(0, 10),
+    date: getHoyArgentina(),
     category: 'Tecnología',
     periodicidad: 'mensual' as 'semanal' | 'quincenal' | 'mensual',
   });

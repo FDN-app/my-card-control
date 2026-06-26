@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useTelegramAlert } from '@/hooks/useTelegramAlert';
+import { getHoyArDate, formatYMD } from '@/lib/dateAR';
 import type { Expense } from '@/lib/data';
 
 export interface Ingreso {
@@ -229,8 +230,8 @@ export function useFinanzas() {
   // ── Ingresos por tipo del mes actual ─────────────────────────────────────
 
   const { ingresosFijoMes, ingresosVariableMes } = (() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const arNow = getHoyArDate();
+    const startOfMonth = formatYMD(new Date(arNow.getFullYear(), arNow.getMonth(), 1));
     const mes = ingresos.filter(i => i.fecha >= startOfMonth);
     return {
       ingresosFijoMes: mes.filter(i => i.tipo === 'fijo'),
@@ -241,8 +242,8 @@ export function useFinanzas() {
   // ── Gasto por categoría vs presupuesto (mes actual) ──────────────────────
 
   const gastadoPorCategoria = (() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const arNow = getHoyArDate();
+    const startOfMonth = formatYMD(new Date(arNow.getFullYear(), arNow.getMonth(), 1));
     const gastosMes = gastosDiarios.filter(g => g.fecha >= startOfMonth);
     const map: Record<string, number> = {};
     gastosMes.forEach(g => { map[g.categoria] = (map[g.categoria] || 0) + g.monto; });
@@ -322,8 +323,8 @@ export function useFinanzas() {
       const presupuesto = presupuestos.find(p => p.categoria === data.categoria);
       if (presupuesto && presupuesto.limite_mensual > 0) {
         const threshold = parseInt(localStorage.getItem('cuotactrl_alert_threshold') || '80');
-        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-          .toISOString().split('T')[0];
+        const arNow = getHoyArDate();
+        const startOfMonth = formatYMD(new Date(arNow.getFullYear(), arNow.getMonth(), 1));
         const { data: gastosMesData } = await supabase
           .from('gastos_diarios')
           .select('monto')

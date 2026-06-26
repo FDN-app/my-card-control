@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { generateMonthlySummary, generateNextMonthPrediction } from '@/services/openai';
+import { getHoyArDate } from '@/lib/dateAR';
 import NetBalance from '@/components/NetBalance';
 import BudgetPieChart from '@/components/BudgetPieChart';
 import ExpenseCalendar from '@/components/ExpenseCalendar';
@@ -97,8 +98,7 @@ export default function Dashboard() {
   }, [cards, expenses, alertThreshold, getCardProjected]);
 
   const subMetrics = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getHoyArDate();
 
     const upcoming = subscriptions
       .filter(s => s.estado === 'Activa')

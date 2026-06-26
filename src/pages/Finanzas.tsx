@@ -4,6 +4,7 @@ import { useFinanzas, type Ingreso, type GastoDiario } from '@/hooks/useFinanzas
 import { useApp } from '@/lib/store';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { chatWithFinanceAssistant } from '@/services/openai';
+import { getHoyArgentina, getHoyArDate } from '@/lib/dateAR';
 import { toast } from 'sonner';
 
 const CATEGORIES = [
@@ -40,8 +41,8 @@ export default function Finanzas() {
   const [chatLoading, setChatLoading] = useState(false);
 
   // Calculations for current month
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const arNow = getHoyArDate();
+  const startOfMonth = new Date(arNow.getFullYear(), arNow.getMonth(), 1).getTime();
 
   // Mostrar todos los ingresos del mes (fijo y variable)
   const ingresosDelMes = useMemo(() => {
@@ -85,8 +86,8 @@ export default function Finanzas() {
 
   const saldoDisponible = totalIngresado - totalGastado;
 
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const daysRemaining = daysInMonth - now.getDate() + 1;
+  const daysInMonth = new Date(arNow.getFullYear(), arNow.getMonth() + 1, 0).getDate();
+  const daysRemaining = daysInMonth - arNow.getDate() + 1;
   const presupuestoDiario = saldoDisponible > 0 ? saldoDisponible / daysRemaining : 0;
 
   const porcentajeGastado = totalIngresado > 0 ? (totalGastado / totalIngresado) * 100 : 0;
@@ -109,7 +110,7 @@ export default function Finanzas() {
     if (!nuevoIngreso.monto) return;
     try {
       await addIngreso({
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: getHoyArgentina(),
         monto: Number(nuevoIngreso.monto),
         descripcion: nuevoIngreso.descripcion || null,
         tipo: nuevoIngreso.tipo,
@@ -153,7 +154,7 @@ export default function Finanzas() {
     if (!nuevoGasto.monto) return;
     try {
       await addGastoDiario({
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: getHoyArgentina(),
         monto: Number(nuevoGasto.monto),
         categoria: nuevoGasto.categoria,
         descripcion: nuevoGasto.descripcion || null,

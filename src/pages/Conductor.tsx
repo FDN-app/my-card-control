@@ -1,21 +1,20 @@
 import { useState, useMemo } from 'react';
 import { Car, Fuel, Route, Clock, TrendingUp, Trash2, Pencil, Check, X, Plus, PiggyBank, BarChart3 } from 'lucide-react';
 import { useFinanzas, type Jornada } from '@/hooks/useFinanzas';
+import { getHoyArgentina, getHoyArDate, formatYMD } from '@/lib/dateAR';
 import { toast } from 'sonner';
 
 const fmt = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 
 function getWeekBounds() {
-  const now = new Date();
-  const day = now.getDay(); // 0=Dom
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday);
-  const inicioSemana = monday.toISOString().split('T')[0];
+  const arToday = getHoyArDate();
+  const dayOfWeek = arToday.getDay(); // 0=Dom
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(arToday);
+  monday.setDate(arToday.getDate() + diffToMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  const finSemana = sunday.toISOString().split('T')[0];
-  return { inicioSemana, finSemana };
+  return { inicioSemana: formatYMD(monday), finSemana: formatYMD(sunday) };
 }
 
 function MetricChip({ label, value }: { label: string; value: string }) {
@@ -43,7 +42,7 @@ export default function Conductor() {
     parseInt(localStorage.getItem('cuotactrl_apartar_pct') || '20')
   );
 
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = getHoyArgentina();
   const [form, setForm] = useState({
     fecha: hoy,
     facturado: '',
@@ -85,8 +84,8 @@ export default function Conductor() {
 
   // ── Mes actual ────────────────────────────────────────────────────────────
   const inicioMes = useMemo(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const arNow = getHoyArDate();
+    return formatYMD(new Date(arNow.getFullYear(), arNow.getMonth(), 1));
   }, []);
 
   const jornadasMes = useMemo(

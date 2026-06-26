@@ -2,19 +2,20 @@ import { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useFinanzas } from '@/hooks/useFinanzas';
 import { formatCurrency } from '@/lib/data';
+import { getHoyArDate, formatYMD } from '@/lib/dateAR';
 
 export default function ComparativaMensual() {
   // jornadas es la fuente de verdad para nafta Uber — se agrega como "Combustible"
   const { gastosDiarios, jornadas } = useFinanzas();
 
   const { actual, anterior, deltaAbs, deltaPct, porCategoria, mesActualLabel, mesAnteriorLabel } = useMemo(() => {
-    const now = new Date();
-    const startActual   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const startAnterior = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-    const endAnterior   = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    const arNow = getHoyArDate();
+    const startActual   = formatYMD(new Date(arNow.getFullYear(), arNow.getMonth(), 1));
+    const startAnterior = formatYMD(new Date(arNow.getFullYear(), arNow.getMonth() - 1, 1));
+    const endAnterior   = formatYMD(new Date(arNow.getFullYear(), arNow.getMonth(), 0));
 
-    const mesActualLabel   = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    const mesAnteriorLabel = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const mesActualLabel   = arNow.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    const mesAnteriorLabel = new Date(arNow.getFullYear(), arNow.getMonth() - 1, 1)
       .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
 
     const gastosMesActual   = gastosDiarios.filter(g => g.fecha >= startActual);

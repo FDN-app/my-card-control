@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useFinanzas } from '@/hooks/useFinanzas';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { getHoyArDate } from '@/lib/dateAR';
 
 const COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#f97316', '#06b6d4', '#ec4899', '#84cc16', '#a855f7'];
 
@@ -10,8 +11,8 @@ export default function BudgetPieChart() {
   const { gastosDiarios, jornadas } = useFinanzas();
   const { format } = useCurrency();
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const arNow = getHoyArDate();
+  const startOfMonth = new Date(arNow.getFullYear(), arNow.getMonth(), 1).getTime();
 
   const data = useMemo(() => {
     const map: Record<string, number> = {};

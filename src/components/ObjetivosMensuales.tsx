@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useObjetivos } from '@/hooks/useObjetivos';
 import { useProyectos, type EstadoProyecto, type Proyecto } from '@/hooks/useProyectos';
+import { getHoyArDate } from '@/lib/dateAR';
 import { toast } from 'sonner';
 
 const MESES = [
@@ -258,10 +259,10 @@ export default function ObjetivosMensuales() {
   const { objetivo, isLoading: loadingObj, upsertObjetivo } = useObjetivos();
   const { proyectos, isLoading: loadingProj, crearProyecto, actualizarProyecto, cambiarEstado, eliminarProyecto } = useProyectos();
 
-  const now = new Date();
-  const mesLabel = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
-  const mesActual = now.getMonth() + 1;
-  const anioActual = now.getFullYear();
+  const arNow = getHoyArDate();
+  const mesLabel = `${MESES[arNow.getMonth()]} ${arNow.getFullYear()}`;
+  const mesActual = arNow.getMonth() + 1;
+  const anioActual = arNow.getFullYear();
 
   // Calcular terminadas este mes por fecha_fin
   const terminadasEsteMes = proyectos.filter(p => {

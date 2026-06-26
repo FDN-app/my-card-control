@@ -4,6 +4,7 @@ import { useFinanzas } from '@/hooks/useFinanzas';
 import { useApp } from '@/lib/store';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { getHoyArDate } from '@/lib/dateAR';
 
 // FUENTE DE VERDAD:
 // - Ingresos Uber → tabla `jornadas` (campo facturado). NO registrar también en tabla ingresos.
@@ -17,9 +18,9 @@ export default function NetBalance() {
   const { subscriptions } = useSubscriptions();
   const { format } = useCurrency();
 
-  const now = new Date();
-  const startOfMonth    = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+  const arNow = getHoyArDate();
+  const startOfMonth    = new Date(arNow.getFullYear(), arNow.getMonth(), 1).getTime();
+  const startOfLastMonth = new Date(arNow.getFullYear(), arNow.getMonth() - 1, 1).getTime();
   const endOfLastMonth  = startOfMonth - 1;
 
   const metrics = useMemo(() => {

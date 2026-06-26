@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useFinanzas, type GastoDiario } from '@/hooks/useFinanzas';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { getHoyArDate } from '@/lib/dateAR';
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
@@ -17,7 +18,7 @@ const DAY_NAMES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 export default function ExpenseCalendar() {
   const { gastosDiarios } = useFinanzas();
   const { format } = useCurrency();
-  const today = new Date();
+  const today = getHoyArDate();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);

@@ -3,6 +3,7 @@ import { type Subscription } from '@/lib/data';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { Calendar, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { getHoyArgentina } from '@/lib/dateAR';
 import { toast } from 'sonner';
 
 interface Props {
@@ -19,7 +20,7 @@ export default function ReactivateSubscriptionModal({ subscription, open, onOpen
   useEffect(() => {
     if (open && subscription) {
       // Default to today if current date is passed
-      const today = new Date().toISOString().split('T')[0];
+      const today = getHoyArgentina();
       setNewDate(subscription.fecha_proximo_cobro > today ? subscription.fecha_proximo_cobro : today);
     }
   }, [open, subscription]);

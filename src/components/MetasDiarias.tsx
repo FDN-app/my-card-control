@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Car, Dumbbell, BookOpen, Zap, Check, Flame, Pencil, UtensilsCrossed, Code2 } from 'lucide-react';
 import { useMetas, type MetaDiaria, type MetaDiariaInput } from '@/hooks/useMetas';
+import { getHoyArgentina } from '@/lib/dateAR';
 import { toast } from 'sonner';
-
-const hoy = new Date().toISOString().split('T')[0];
 
 const ENERGIA_LABELS = ['', '😴', '😩', '😕', '😐', '🙂', '😊', '😄', '⚡', '🔥', '💥'];
 
@@ -133,6 +132,7 @@ function formToInput(f: FormState): Partial<MetaDiariaInput> {
 /* ── main component ── */
 
 export default function MetasDiarias() {
+  const hoy = getHoyArgentina();
   const { getMeta, createMeta, updateMeta, toggleRealizado } = useMetas();
   const meta = getMeta(hoy);
 

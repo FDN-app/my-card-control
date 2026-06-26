@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { getHoyArgentina } from '@/lib/dateAR';
 
 export type EstadoProyecto = 'Idea' | 'En progreso' | 'Terminada' | 'Mejorando';
 
@@ -74,8 +75,7 @@ export function useProyectos() {
 
   const cambiarEstado = useMutation({
     mutationFn: async ({ id, estado }: { id: string; estado: EstadoProyecto }) => {
-      const now = new Date().toISOString();
-      const extra = estado === 'Terminada' ? { fecha_fin: now.split('T')[0] } : {};
+      const extra = estado === 'Terminada' ? { fecha_fin: getHoyArgentina() } : {};
       const { error } = await supabase
         .from('proyectos')
         .update({ estado, ...extra, updated_at: now })

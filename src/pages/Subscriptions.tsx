@@ -6,6 +6,7 @@ import { useSubscriptions } from '@/hooks/useSubscriptions';
 import SubscriptionDialog from '@/components/SubscriptionDialog';
 import PaymentOptionsModal from '@/components/PaymentOptionsModal';
 import ReactivateSubscriptionModal from '@/components/ReactivateSubscriptionModal';
+import { getHoyArDate } from '@/lib/dateAR';
 
 export default function Subscriptions() {
   const { cards } = useApp();
@@ -28,8 +29,7 @@ export default function Subscriptions() {
   };
 
   const subMetrics = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getHoyArDate();
 
     let monthlyTotal = 0;
 

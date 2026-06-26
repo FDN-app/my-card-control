@@ -3,6 +3,7 @@ import { Camera, FileUp, Check, Pencil, Loader2, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/lib/store';
 import { formatCurrency } from '@/lib/data';
+import { getHoyArgentina } from '@/lib/dateAR';
 import { useNavigate } from 'react-router-dom';
 
 const MOCK_DETECTED = [
@@ -51,7 +52,7 @@ export default function ImportExpenses() {
         total: item.total,
         installments: item.installments,
         current: item.current,
-        date: new Date().toISOString().slice(0, 10),
+        date: getHoyArgentina(),
         category: item.category,
         installmentAmount: Math.round(item.total / item.installments),
         periodicidad: 'mensual',

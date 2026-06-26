@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { getHoyArDate } from '@/lib/dateAR';
 
 export interface ObjetivoMensual {
   id: string;
@@ -17,8 +18,8 @@ export interface ObjetivoMensual {
 export type ObjetivoInput = Omit<ObjetivoMensual, 'id' | 'user_id' | 'created_at' | 'updated_at'>;
 
 const getMesAnioActual = () => {
-  const now = new Date();
-  return { mes: now.getMonth() + 1, anio: now.getFullYear() };
+  const arNow = getHoyArDate();
+  return { mes: arNow.getMonth() + 1, anio: arNow.getFullYear() };
 };
 
 export function useObjetivos() {

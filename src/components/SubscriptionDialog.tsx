@@ -7,6 +7,7 @@ import { useApp } from '@/lib/store';
 import { type Subscription } from '@/lib/data';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { Loader2 } from 'lucide-react';
+import { getHoyArgentina } from '@/lib/dateAR';
 import { toast } from 'sonner';
 
 const subscriptionSchema = z.object({
@@ -38,7 +39,7 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
     defaultValues: {
       periodicidad: 'Mensual',
       estado: 'Activa',
-      fecha_proximo_cobro: new Date().toISOString().split('T')[0],
+      fecha_proximo_cobro: getHoyArgentina(),
       dias_alerta: 3,
     }
   });
@@ -50,7 +51,7 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
           nombre: subscriptionToEdit.nombre,
           monto: subscriptionToEdit.monto,
           tarjeta_id: subscriptionToEdit.tarjeta_id || '',
-          fecha_proximo_cobro: subscriptionToEdit.fecha_proximo_cobro ? subscriptionToEdit.fecha_proximo_cobro.split('T')[0] : new Date().toISOString().split('T')[0],
+          fecha_proximo_cobro: subscriptionToEdit.fecha_proximo_cobro ? subscriptionToEdit.fecha_proximo_cobro.split('T')[0] : getHoyArgentina(),
           periodicidad: subscriptionToEdit.periodicidad,
           estado: subscriptionToEdit.estado,
           notas: subscriptionToEdit.notas || '',
@@ -61,7 +62,7 @@ export default function SubscriptionDialog({ open, onOpenChange, subscriptionToE
           nombre: '',
           monto: 0,
           tarjeta_id: '',
-          fecha_proximo_cobro: new Date().toISOString().split('T')[0],
+          fecha_proximo_cobro: getHoyArgentina(),
           periodicidad: 'Mensual',
           estado: 'Activa',
           notas: '',
