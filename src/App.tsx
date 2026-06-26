@@ -21,6 +21,7 @@ import MetasDiariasPage from "./pages/MetasDiariasPage";
 import PlanSemanalPage from "./pages/PlanSemanalPage";
 import ObjetivosMensualesPage from "./pages/ObjetivosMensualesPage";
 import Conductor from "./pages/Conductor";
+import HackTheBoxPage from "./pages/HackTheBoxPage";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
@@ -54,6 +55,7 @@ const App = () => (
                     <Route path="/plan-semanal" element={<PlanSemanalPage />} />
                     <Route path="/objetivos" element={<ObjetivosMensualesPage />} />
                     <Route path="/conductor" element={<Conductor />} />
+                    <Route path="/hackthebox" element={<HackTheBoxPage />} />
                     <Route path="/configuracion" element={<SettingsPage />} />
                   </Route>
                 </Route>

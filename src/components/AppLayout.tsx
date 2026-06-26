@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CreditCard, PlusCircle, FileUp,
   Settings, TrendingDown, Bell, LogOut, Wallet, Target, Car, CalendarCheck,
-  CalendarDays, Trophy, MoreHorizontal, X,
+  CalendarDays, Trophy, MoreHorizontal, X, Terminal,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -21,6 +21,7 @@ const SIDEBAR_ITEMS = [
   { icon: CalendarCheck,  label: 'Metas Diarias',    path: '/metas-diarias' },
   { icon: CalendarDays,   label: 'Plan Semanal',     path: '/plan-semanal' },
   { icon: Trophy,         label: 'Objetivos',        path: '/objetivos' },
+  { icon: Terminal,       label: 'HackTheBox',       path: '/hackthebox' },
 ];
 
 // 5 items for mobile — center item is the CTA
@@ -40,6 +41,7 @@ const MORE_ITEMS = [
   { icon: Target,       label: 'Metas de Ahorro', path: '/metas' },
   { icon: Bell,         label: 'Suscripciones',   path: '/suscripciones' },
   { icon: FileUp,       label: 'Importar',        path: '/gastos/importar' },
+  { icon: Terminal,     label: 'HackTheBox',      path: '/hackthebox' },
   { icon: Settings,     label: 'Configuración',   path: '/configuracion' },
 ];
 
