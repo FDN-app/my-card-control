@@ -1,0 +1,12 @@
+project_id = "my-card-control"
+
+# Telegram no envía JWT al webhook; la función valida el contenido recibido.
+[functions.telegram-webhook]
+verify_jwt = false
+
+# Supabase Cron usa un secreto propio en x-cron-secret.
+[functions.mensaje-matutino]
+verify_jwt = false
+
+[functions.check-nocturno]
+verify_jwt = false

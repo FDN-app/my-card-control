@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+supabase/.temp/
 
 # Scripts de utilidad con credenciales — no deben rastrearse
 register_user.mjs
