@@ -1,7 +1,7 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CreditCard, PlusCircle, FileUp,
-  Settings, TrendingDown, Bell, LogOut, Wallet, Target, Car,
+  Settings, TrendingDown, Bell, LogOut, Wallet, Target, Car, UtensilsCrossed,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -16,6 +16,7 @@ const SIDEBAR_ITEMS = [
   { icon: Bell,            label: 'Suscripciones',  path: '/suscripciones' },
   { icon: Target,          label: 'Metas de Ahorro', path: '/metas' },
   { icon: Car,             label: 'Conductor',       path: '/conductor' },
+  { icon: UtensilsCrossed, label: 'Alimentación',    path: '/alimentacion' },
 ];
 
 // 5 items for mobile — center item is the CTA
@@ -25,6 +26,7 @@ const BOTTOM_ITEMS = [
   { icon: PlusCircle,      label: 'Nuevo',     path: '/gastos/nuevo',  center: true  },
   { icon: Wallet,          label: 'Finanzas',  path: '/finanzas',      center: false },
   { icon: Bell,            label: 'Subs',      path: '/suscripciones', center: false },
+  { icon: UtensilsCrossed, label: 'Dieta',     path: '/alimentacion',  center: false },
 ];
 
 /* ── Sidebar item ────────────────────────────────────────── */
