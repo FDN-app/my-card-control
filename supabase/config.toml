@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.aviso-suscripciones]
 verify_jwt = false
+
+[functions.aviso-comidas]
+verify_jwt = false

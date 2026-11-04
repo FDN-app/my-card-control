@@ -7,7 +7,8 @@
 - **Hecho:** aviso de suscripciones por vencer sin n8n → `supabase/functions/aviso-suscripciones/index.ts` + `supabase/migrations/00009_aviso_suscripciones_cron.sql` (20:00 AR) + `config.toml`. Avisa las `Activa` que vencen entre hoy y `dias_alerta` (3 por defecto). **Deployado y probado: el mensaje llegó.** Cron cargado a mano en el SQL Editor.
 - **Deploy de funciones:** la CLI logueada es otra cuenta. Se usa un token de proyecto (7 días): `env SUPABASE_ACCESS_TOKEN=... supabase functions deploy <fn> --project-ref bvudjigocyxrgqplcghd --no-verify-jwt`. Supabase de cuotactrl = login con GitHub (`tanomanfer's Org`).
 - **Ojo:** `main` → `personal` NO está mezclado (conflictos en App.tsx, AppLayout.tsx, Alimentacion): es una tarea aparte.
-- **Próximo paso:** 5 avisos de comidas (mismo esquema), Conductor, Renovar.
+- **Avisos de comidas (deployado y probado, llegó; falta commit):** `supabase/functions/aviso-comidas/index.ts` (recibe `comida` 1-5; usa el menú del último registro de `alimentacion_diaria`; si ya marcó esa comida hoy no avisa; sin registro no avisa) + `00010_aviso_comidas_cron.sql` (10:00, 12:30, 14:30, 17:30, 21:30 AR) + `config.toml`. El menú está copiado de `src/lib/planAlimentacion.ts`: si cambia el plan, actualizar ambos. `deno check` OK.
+- **Próximo paso:** commit de avisos de comidas (cron 00010 ya cargado en SQL Editor). Después: Conductor, Renovar, mezclar main→personal.
 
 ## Última actualización
 2026-09-20 — El mensaje matutino de las 07:00 se migró de n8n a Supabase Cron + Edge Function.
