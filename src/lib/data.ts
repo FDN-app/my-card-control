@@ -34,7 +34,7 @@ export interface Expense {
   category: string;
   installmentAmount: number;
   periodicidad?: 'semanal' | 'quincenal' | 'mensual';
-  modificaciones_cuotas?: Record<number, { monto?: number; fecha?: string; nota?: string; eliminada?: boolean; pagada?: boolean }>;
+  modificaciones_cuotas?: Record<number, { monto?: number; fecha?: string; nota?: string; eliminada?: boolean; pagada?: boolean; pagado_parcial?: number }>;
   tasa_interes?: number;
 }
 

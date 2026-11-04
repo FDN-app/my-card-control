@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Pencil, Trash2,
-  ChevronDown, ChevronUp, CheckCircle2, Circle, PartyPopper,
+  ChevronDown, ChevronUp, CheckCircle2, Circle, PartyPopper, Wallet,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '@/lib/store';
@@ -23,8 +23,14 @@ type Cuota = {
   monto: number;
   eliminada: boolean;
   nota: string;
+  parcial: number; // lo ya pagado de una cuota que todavía no está paga completa
   estado: 'Pagada' | 'Actual' | 'Pendiente';
 };
+
+const fechaLarga = (d: Date) => d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+// Lo que falta pagar de una cuota (0 si ya está paga)
+const restante = (c: Cuota) => (c.estado === 'Pagada' ? 0 : Math.max(c.monto - c.parcial, 0));
 
 const generateInstallments = (exp: Expense): Cuota[] => {
   const arr: Cuota[] = [];
@@ -41,6 +47,7 @@ const generateInstallments = (exp: Expense): Cuota[] => {
     let baseMonto = exp.installmentAmount || Math.round(exp.total / exp.installments);
     let eliminada = false;
     let nota = '';
+    let parcial = 0;
 
     const mod = exp.modificaciones_cuotas?.[i];
     if (mod) {
@@ -48,6 +55,7 @@ const generateInstallments = (exp: Expense): Cuota[] => {
       if (mod.fecha) d = new Date(mod.fecha);
       if (mod.nota)  nota = mod.nota;
       if (mod.eliminada) eliminada = true;
+      if (mod.pagado_parcial) parcial = mod.pagado_parcial;
     }
 
     // Estado: pagada explícitamente en mods, o ya avanzado por current, o actual/pendiente
@@ -63,7 +71,7 @@ const generateInstallments = (exp: Expense): Cuota[] => {
           : 'Actual';
     }
 
-    arr.push({ numero: i, fecha: d, monto: baseMonto, eliminada, nota, estado });
+    arr.push({ numero: i, fecha: d, monto: baseMonto, eliminada, nota, parcial, estado });
   }
 
   return arr.filter(c => !c.eliminada);
@@ -82,6 +90,10 @@ export default function CardDetail() {
   const [editingInstallment, setEditingInstallment] = useState<{
     exp: Expense; num: number; monto: number; fecha: string; nota: string;
   } | null>(null);
+  // cuota que se está pagando (total o parcial) desde el dialog "Pagar"
+  const [payingCuota,        setPayingCuota]        = useState<{
+    exp: Expense; cuota: Cuota; monto: string;
+  } | null>(null);
   const [loadingAction,      setLoadingAction]      = useState(false);
   // id del gasto cuyas cuotas acaban de quedar todas pagas → muestra dialog
   const [completedExpenseId, setCompletedExpenseId] = useState<string | number | null>(null);
@@ -92,8 +104,8 @@ export default function CardDetail() {
   const projected = useMemo(() =>
     cardExpenses.reduce((acc, exp) => {
       const cuotas    = generateInstallments(exp);
-      const remaining = cuotas.filter(c => c.numero >= exp.current);
-      return acc + (remaining.length > 0 ? remaining[0].monto : 0);
+      const remaining = cuotas.filter(c => c.numero >= exp.current && c.estado !== 'Pagada');
+      return acc + (remaining.length > 0 ? restante(remaining[0]) : 0);
     }, 0),
   [cardExpenses]);
 
@@ -108,7 +120,7 @@ export default function CardDetail() {
         .filter(c => c.numero >= exp.current)
         .forEach(c => {
           const target = data.find(d => d.year === c.fecha.getFullYear() && d.month === c.fecha.getMonth());
-          if (target) target.total += c.monto;
+          if (target) target.total += restante(c);
         });
     });
     return data;
@@ -150,7 +162,7 @@ export default function CardDetail() {
           mods[i] = { ...(mods[i] || {}), pagada: true };
         }
       }
-      mods[cuotaNum] = { ...(mods[cuotaNum] || {}), pagada: false };
+      mods[cuotaNum] = { ...(mods[cuotaNum] || {}), pagada: false, pagado_parcial: undefined };
     } else {
       // MARCAR COMO PAGADA
       mods[cuotaNum] = { ...(mods[cuotaNum] || {}), pagada: true };
@@ -179,6 +191,38 @@ export default function CardDetail() {
       }
     } catch {
       toast({ title: 'Error al actualizar cuota', variant: 'destructive' });
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const openPay = (exp: Expense, cuota: Cuota) => {
+    setPayingCuota({ exp, cuota, monto: '' });
+  };
+
+  const handlePayFull = async () => {
+    if (!payingCuota) return;
+    const { exp, cuota } = payingCuota;
+    setPayingCuota(null);
+    await handleTogglePaid(exp, cuota.numero, false);
+  };
+
+  const handlePayPartial = async () => {
+    if (!payingCuota) return;
+    const { exp, cuota, monto } = payingCuota;
+    const acumulado = cuota.parcial + Number(monto);
+    // Si con este pago se completa la cuota, se marca como pagada
+    if (acumulado >= cuota.monto) return handlePayFull();
+
+    setLoadingAction(true);
+    const mods = { ...(exp.modificaciones_cuotas || {}) };
+    mods[cuota.numero] = { ...(mods[cuota.numero] || {}), pagado_parcial: acumulado };
+    try {
+      await updateExpense({ ...exp, modificaciones_cuotas: mods });
+      setPayingCuota(null);
+      toast({ title: `Pago parcial registrado · faltan ${formatCurrency(cuota.monto - acumulado)}` });
+    } catch {
+      toast({ title: 'Error al registrar el pago', variant: 'destructive' });
     } finally {
       setLoadingAction(false);
     }
@@ -271,8 +315,10 @@ export default function CardDetail() {
                 const cuotas     = generateInstallments(exp);
                 const pagadas    = cuotas.filter(c => c.estado === 'Pagada');
                 const pendientes = cuotas.filter(c => c.estado !== 'Pagada');
-                const totalPagado    = pagadas.reduce((a, c) => a + c.monto, 0);
-                const totalPendiente = pendientes.reduce((a, c) => a + c.monto, 0);
+                const totalPagado    = pagadas.reduce((a, c) => a + c.monto, 0) + pendientes.reduce((a, c) => a + c.parcial, 0);
+                const totalPendiente = pendientes.reduce((a, c) => a + restante(c), 0);
+                const proxima        = pendientes[0];
+                const ultimaPagada   = pagadas[pagadas.length - 1];
                 const isExpanded = expandedExpense === exp.id;
 
                 return (
@@ -291,6 +337,11 @@ export default function CardDetail() {
                                 'bg-blue-500/10 text-blue-500 border-blue-500/20'}`}>
                               {(exp.periodicidad ?? 'mensual').charAt(0).toUpperCase() + (exp.periodicidad ?? 'mensual').slice(1)}
                             </span>
+                            {proxima && (
+                              <span className={`text-[11px] ${proxima.estado === 'Actual' ? 'text-warning font-medium' : 'text-muted-foreground'}`}>
+                                Vence {fechaLarga(proxima.fecha)}
+                              </span>
+                            )}
                           </div>
                           {/* Mobile-only stats */}
                           <div className="flex items-center gap-3 mt-2 md:hidden">
@@ -327,15 +378,35 @@ export default function CardDetail() {
 
                         {/* Actions — ALWAYS VISIBLE (not hover-only, works on mobile) */}
                         <div className="flex items-center gap-1 shrink-0">
-                          {exp.installments > 1 && (
+                          {proxima ? (
                             <button
+                              onClick={() => openPay(exp, proxima)}
+                              disabled={loadingAction}
+                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-success/30 text-success hover:bg-success/10 transition-colors disabled:opacity-50"
+                              title={exp.installments > 1 ? `Pagar cuota #${proxima.numero}` : 'Pagar'}
+                            >
+                              <Wallet size={14} /> Pagar
+                            </button>
+                          ) : ultimaPagada && (
+                            <button
+                              onClick={() => {
+                                if (!confirm('¿Volver a marcar como pendiente la última cuota pagada?')) return;
+                                handleTogglePaid(exp, ultimaPagada.numero, true);
+                              }}
+                              disabled={loadingAction}
+                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-success/10 text-success border border-success/20 disabled:opacity-50"
+                              title="Pagado (tocá para deshacer)"
+                            >
+                              <CheckCircle2 size={14} /> Pagado
+                            </button>
+                          )}
+                          <button
                               onClick={() => setExpandedExpense(isExpanded ? null : exp.id)}
                               className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary/50"
-                              title="Ver cuotas"
+                              title="Ver detalle"
                             >
                               {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </button>
-                          )}
                           <button
                             onClick={() => setEditingExpense({ ...exp })}
                             className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-secondary/50"
@@ -357,9 +428,32 @@ export default function CardDetail() {
                     </div>
 
                     {/* ── Expanded cuotas ──────────────────────── */}
-                    {isExpanded && exp.installments > 1 && (
+                    {isExpanded && (
                       <div className="px-4 md:px-6 py-4 bg-secondary/20">
                         <div className="bg-card/50 border border-border rounded-xl p-4 animate-fade-in">
+                          {/* Detalle del gasto */}
+                          <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                            Detalle
+                          </h5>
+                          <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 text-sm mb-6">
+                            {[
+                              ['Medio de pago', [card.bank, card.name].filter(Boolean).join(' ') + (card.lastDigits ? ` ·${card.lastDigits}` : '')],
+                              ['Tipo', card.tipo ?? '—'],
+                              ['Fecha de compra', fechaLarga(new Date(exp.date))],
+                              ['Próximo vencimiento', proxima ? `${fechaLarga(proxima.fecha)} (cuota ${proxima.numero})` : 'Todo pagado'],
+                              ['Cuotas pagadas', `${pagadas.length} de ${cuotas.length}`],
+                              ['Valor de cuota', formatCurrency(exp.installmentAmount || Math.round(exp.total / exp.installments))],
+                              ['Total original', formatCurrency(exp.total)],
+                              ['Total con interés', formatCurrency((exp.installmentAmount || 0) * exp.installments || exp.total)],
+                              ['Interés', exp.tasa_interes ? `${exp.tasa_interes}%` : formatCurrency(Math.max((exp.installmentAmount * exp.installments) - exp.total, 0))],
+                            ].map(([k, v]) => (
+                              <div key={k} className="min-w-0">
+                                <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</dt>
+                                <dd className="text-foreground font-medium truncate" title={v}>{v}</dd>
+                              </div>
+                            ))}
+                          </dl>
+
                           <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
                             Desglose de Cuotas
                           </h5>
@@ -404,6 +498,11 @@ export default function CardDetail() {
                                     {c.nota && (
                                       <span className="block text-[10px] text-accent mt-0.5">{c.nota}</span>
                                     )}
+                                    {!isPaid && c.parcial > 0 && (
+                                      <span className="block text-[10px] text-warning mt-0.5">
+                                        Pagado {formatCurrency(c.parcial)} · Falta {formatCurrency(restante(c))}
+                                      </span>
+                                    )}
                                   </div>
 
                                   {/* Amount */}
@@ -418,6 +517,16 @@ export default function CardDetail() {
                                                  'bg-muted/50 text-muted-foreground border border-border'}`}>
                                     {isPaid ? '✓ Pagada' : isActual ? '↻ Actual' : '· Pendiente'}
                                   </span>
+
+                                  {!isPaid && (
+                                    <button
+                                      onClick={() => openPay(exp, c)}
+                                      className="shrink-0 text-muted-foreground hover:text-success transition-colors p-1"
+                                      title="Pagar (total o parcial)"
+                                    >
+                                      <Wallet size={14} />
+                                    </button>
+                                  )}
 
                                   {/* Edit button — ALWAYS VISIBLE */}
                                   <button
@@ -571,6 +680,46 @@ export default function CardDetail() {
               }}>
                 {loadingAction ? 'Guardando...' : 'Guardar Cambios'}
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Dialog: pagar cuota (total o parcial) ─────────────── */}
+      {payingCuota && (
+        <Dialog open={!!payingCuota} onOpenChange={(o) => !o && setPayingCuota(null)}>
+          <DialogContent className="glass-panel border-border sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">
+                Pagar {payingCuota.exp.installments > 1 ? `cuota #${payingCuota.cuota.numero}` : payingCuota.exp.desc}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1 text-sm">
+              <p className="text-muted-foreground">
+                Monto: <span className="text-foreground font-bold">{formatCurrency(payingCuota.cuota.monto)}</span>
+              </p>
+              {payingCuota.cuota.parcial > 0 && (
+                <p className="text-muted-foreground">
+                  Ya pagaste <span className="text-success font-bold">{formatCurrency(payingCuota.cuota.parcial)}</span>
+                  {' · '}falta <span className="text-foreground font-bold">{formatCurrency(restante(payingCuota.cuota))}</span>
+                </p>
+              )}
+            </div>
+            <Button className="w-full gap-2 mt-2" onClick={handlePayFull} disabled={loadingAction}>
+              <CheckCircle2 size={16} /> Pagar todo ({formatCurrency(restante(payingCuota.cuota))})
+            </Button>
+            <div className="border-t border-border pt-4 mt-2">
+              <label className="text-sm text-muted-foreground">Pago parcial</label>
+              <div className="flex gap-2 mt-1">
+                <input type="number" inputMode="decimal" min={0}
+                  className="flex-1 min-w-0 bg-secondary/50 border border-border p-2 rounded text-foreground placeholder:text-muted-foreground"
+                  placeholder="¿Cuánto pagaste?"
+                  value={payingCuota.monto}
+                  onChange={e => setPayingCuota({ ...payingCuota, monto: e.target.value })} />
+                <Button variant="outline" onClick={handlePayPartial} disabled={loadingAction || !(Number(payingCuota.monto) > 0)}>
+                  Registrar
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

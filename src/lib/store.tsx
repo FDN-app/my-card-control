@@ -221,7 +221,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const nextMonthTotal = useMemo(() =>
     expenses
-      .filter(e => e.current < e.installments || e.installments === 1)
+      // current = primera cuota sin pagar; si supera installments, ya está todo pago
+      .filter(e => e.current <= e.installments)
       .reduce((acc, e) => acc + (e.installmentAmount || Math.round(e.total / e.installments)), 0),
   [expenses]);
 
