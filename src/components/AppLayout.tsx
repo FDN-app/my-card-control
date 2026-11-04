@@ -1,32 +1,28 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CreditCard, PlusCircle, FileUp,
-  Settings, TrendingDown, Bell, LogOut, Wallet, Target, Car, UtensilsCrossed,
+  LayoutDashboard, PlusCircle,
+  Settings, TrendingDown, LogOut, Wallet, Target, UtensilsCrossed,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { sectionMatches, type SectionKey } from '@/components/SectionLayout';
 
 /* ── Nav definitions ─────────────────────────────────────── */
 
-const SIDEBAR_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard',      path: '/' },
-  { icon: CreditCard,      label: 'Medios de Pago', path: '/tarjetas' },
-  { icon: Wallet,          label: 'Mis Finanzas',   path: '/finanzas' },
-  { icon: PlusCircle,      label: 'Nuevo Gasto',    path: '/gastos/nuevo' },
-  { icon: FileUp,          label: 'Importar',       path: '/gastos/importar' },
-  { icon: Bell,            label: 'Suscripciones',  path: '/suscripciones' },
-  { icon: Target,          label: 'Metas de Ahorro', path: '/metas' },
-  { icon: Car,             label: 'Conductor',       path: '/conductor' },
-  { icon: UtensilsCrossed, label: 'Alimentación',    path: '/alimentacion' },
+// `section`: el ítem agrupa varias pantallas (ver SectionLayout) y queda activo en cualquiera de ellas
+const SIDEBAR_ITEMS: { icon: typeof LayoutDashboard; label: string; path: string; section?: SectionKey }[] = [
+  { icon: LayoutDashboard, label: 'Dashboard',         path: '/' },
+  { icon: Wallet,          label: 'Finanzas',          path: '/finanzas', section: 'finanzas' },
+  { icon: Target,          label: 'Metas y Conductor', path: '/metas',    section: 'metas' },
+  { icon: UtensilsCrossed, label: 'Alimentación',      path: '/alimentacion' },
 ];
 
 // 5 items for mobile — center item is the CTA
-const BOTTOM_ITEMS = [
-  { icon: LayoutDashboard, label: 'Inicio',    path: '/',              center: false },
-  { icon: CreditCard,      label: 'Pagos',     path: '/tarjetas',      center: false },
-  { icon: PlusCircle,      label: 'Nuevo',     path: '/gastos/nuevo',  center: true  },
-  { icon: Wallet,          label: 'Finanzas',  path: '/finanzas',      center: false },
-  { icon: Bell,            label: 'Subs',      path: '/suscripciones', center: false },
-  { icon: UtensilsCrossed, label: 'Dieta',     path: '/alimentacion',  center: false },
+const BOTTOM_ITEMS: { icon: typeof LayoutDashboard; label: string; path: string; center: boolean; section?: SectionKey }[] = [
+  { icon: LayoutDashboard, label: 'Inicio',   path: '/',             center: false },
+  { icon: Wallet,          label: 'Finanzas', path: '/finanzas',     center: false, section: 'finanzas' },
+  { icon: PlusCircle,      label: 'Nuevo',    path: '/gastos/nuevo', center: true  },
+  { icon: Target,          label: 'Metas',    path: '/metas',        center: false, section: 'metas' },
+  { icon: UtensilsCrossed, label: 'Dieta',    path: '/alimentacion', center: false },
 ];
 
 /* ── Sidebar item ────────────────────────────────────────── */
@@ -145,8 +141,9 @@ export default function AppLayout() {
   const navigate  = useNavigate();
   const { user, signOut } = useAuth();
 
-  const isActive = (path: string) =>
-    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+  const isActive = (path: string, section?: SectionKey) =>
+    section ? sectionMatches(section, location.pathname)
+    : path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
   const handleSignOut = async () => {
     await signOut();
@@ -208,7 +205,7 @@ export default function AppLayout() {
               key={item.path}
               icon={item.icon}
               label={item.label}
-              active={isActive(item.path)}
+              active={isActive(item.path, item.section)}
               onClick={() => navigate(item.path)}
             />
           ))}
@@ -294,7 +291,7 @@ export default function AppLayout() {
             key={item.path}
             icon={item.icon}
             label={item.label}
-            active={isActive(item.path)}
+            active={item.center ? isActive(item.path) : isActive(item.path, item.section)}
             center={item.center}
             onClick={() => navigate(item.path)}
           />

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, FileUp } from 'lucide-react';
 
 export default function NewExpense() {
   const { id: expenseId } = useParams<{ id?: string }>();
@@ -126,11 +126,18 @@ export default function NewExpense() {
 
   return (
     <div className="max-w-xl mx-auto space-y-8 animate-fade-in">
-      <div>
-        <p className="text-muted-foreground text-sm mb-1 uppercase tracking-widest pl-1">{isEditMode ? 'Modificar' : 'Registrar'}</p>
-        <h2 className="text-4xl md:text-5xl font-black tracking-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto]">
-          {isEditMode ? 'Editar Gasto' : 'Nuevo Gasto'}
-        </h2>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-muted-foreground text-sm mb-1 uppercase tracking-widest pl-1">{isEditMode ? 'Modificar' : 'Registrar'}</p>
+          <h2 className="text-4xl md:text-5xl font-black tracking-display bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary animate-[textShine_4s_linear_infinite] [background-size:200%_auto]">
+            {isEditMode ? 'Editar Gasto' : 'Nuevo Gasto'}
+          </h2>
+        </div>
+        {!isEditMode && (
+          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => navigate('/gastos/importar')}>
+            <FileUp size={16} /> Importar
+          </Button>
+        )}
       </div>
 
       <div className="surface-elevated rounded-2xl p-6 space-y-5">

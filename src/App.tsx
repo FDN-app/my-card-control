@@ -8,6 +8,7 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
+import SectionLayout from "@/components/SectionLayout";
 import Index from "./pages/Index";
 import Cards from "./pages/Cards";
 import CardDetail from "./pages/CardDetail";
@@ -40,15 +41,19 @@ const App = () => (
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Index />} />
-                    <Route path="/tarjetas" element={<Cards />} />
-                    <Route path="/tarjetas/:id" element={<CardDetail />} />
-                    <Route path="/gastos/nuevo" element={<NewExpense />} />
-                    <Route path="/gastos/editar/:id" element={<NewExpense />} />
-                    <Route path="/gastos/importar" element={<ImportExpenses />} />
-                    <Route path="/suscripciones" element={<Subscriptions />} />
-                    <Route path="/finanzas" element={<Finanzas />} />
-                    <Route path="/metas" element={<MetasAhorro />} />
-                    <Route path="/conductor" element={<Conductor />} />
+                    <Route element={<SectionLayout section="finanzas" />}>
+                      <Route path="/finanzas" element={<Finanzas />} />
+                      <Route path="/gastos/nuevo" element={<NewExpense />} />
+                      <Route path="/gastos/editar/:id" element={<NewExpense />} />
+                      <Route path="/gastos/importar" element={<ImportExpenses />} />
+                      <Route path="/tarjetas" element={<Cards />} />
+                      <Route path="/tarjetas/:id" element={<CardDetail />} />
+                      <Route path="/suscripciones" element={<Subscriptions />} />
+                    </Route>
+                    <Route element={<SectionLayout section="metas" />}>
+                      <Route path="/metas" element={<MetasAhorro />} />
+                      <Route path="/conductor" element={<Conductor />} />
+                    </Route>
                     <Route path="/alimentacion" element={<Alimentacion />} />
                     <Route path="/configuracion" element={<SettingsPage />} />
                   </Route>
