@@ -2,6 +2,13 @@
 
 > Archivo canónico de estado para `my-card-control`.
 
+## 🔁 Último traspaso
+- **Fecha / IA:** 2026-11-04 · Claude (rama `personal`). En `main` ya se publicaron: menú agrupado + cuotas Pagar/parcial/detalle (`d882b5f`); el traspaso y la lista de pendientes completa están en el `ESTADO_PROYECTO.md` de `main`.
+- **Hecho:** aviso de suscripciones por vencer sin n8n → `supabase/functions/aviso-suscripciones/index.ts` + `supabase/migrations/00009_aviso_suscripciones_cron.sql` (20:00 AR) + `config.toml`. Avisa las `Activa` que vencen entre hoy y `dias_alerta` (3 por defecto). **Deployado y probado: el mensaje llegó.** Cron cargado a mano en el SQL Editor.
+- **Deploy de funciones:** la CLI logueada es otra cuenta. Se usa un token de proyecto (7 días): `env SUPABASE_ACCESS_TOKEN=... supabase functions deploy <fn> --project-ref bvudjigocyxrgqplcghd --no-verify-jwt`. Supabase de cuotactrl = login con GitHub (`tanomanfer's Org`).
+- **Ojo:** `main` → `personal` NO está mezclado (conflictos en App.tsx, AppLayout.tsx, Alimentacion): es una tarea aparte.
+- **Próximo paso:** 5 avisos de comidas (mismo esquema), Conductor, Renovar.
+
 ## Última actualización
 2026-09-20 — El mensaje matutino de las 07:00 se migró de n8n a Supabase Cron + Edge Function.
 

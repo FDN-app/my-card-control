@@ -10,3 +10,6 @@ verify_jwt = false
 
 [functions.check-nocturno]
 verify_jwt = false
+
+[functions.aviso-suscripciones]
+verify_jwt = false
