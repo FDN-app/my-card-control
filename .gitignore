@@ -29,3 +29,6 @@ supabase/.temp/
 # Scripts de utilidad con credenciales — no deben rastrearse
 register_user.mjs
 runMigration.mjs
+
+# agregado 2026-10-03
+.env
